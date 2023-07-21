@@ -142,23 +142,26 @@ program define reghdfejl, eclass
     local absorbvars: subinstr local absorbvars "i." " ", all
     local absorbvars: subinstr local absorbvars "c." " ", all
     local absorbvars: subinstr local absorbvars "#" " ", all
-    markout `touse' `absorbvars'
   }
   else if !0`hascons' local fearg + 0
 
-  local hasiv = strpos(`"`_anything'"', "=")
+  tokenize `_anything'
+  _fv_check_depvar `1'
+  local depname `1'
+  macro shift
+
+  local hasiv = strpos(`"`*'"', "=")
   if `hasiv' {
-    local t = regexm(`"`_anything'"', "^([^\(]*)\(([^=]*)=([^\)]*)\)(.*)$")
-    fvexpand `=regexs(1)' `=regexs(4)'
-    local X `r(varlist)'
-    fvrevar `= regexs(2)'
-    local y1 `r(varlist)'
-    fvexpand `=regexs(3)'
-    local Z `r(varlist)'
-    local varlist `y2' `y1' `X' `Z'
+    local t = regexm(`"`*'"', "^([^\(]*)\(([^=]*)=([^\)]*)\)(.*)$")
+    fvunab inexogname: `=regexs(1)' `=regexs(4)'
+    fvunab instdname: `= regexs(2)'
+    fvunab instsname: `=regexs(3)'
   }
-  else local varlist `_anything'
-  marksample touse, strok
+  else local inexogname `*'
+
+  local varlist `depvarname' `instdname' `inexogname' `instsname'
+  marksample touse
+  markout `touse' `absorbvars'
 
   if `"`cluster'"' != "" local vce cluster `cluster'  // move clustering vars in cluster() to vce() because _vce_parse can only handle >1 var in latter
   _vce_parse, optlist(Robust) argoptlist(CLuster) pwallowed(robust) old: `wgtexp', `robust' vce(`vce')
@@ -177,17 +180,11 @@ program define reghdfejl, eclass
     local vcovarg , Vcov.cluster(`vcovarg')
   }
 
-  fvexpand `varlist' if `touse'
-  tokenize `r(varlist)'
-  _fv_check_depvar `1'
-  local depname `1'
-  macro shift
-  local indepnames `*'
-  
-  fvrevar `depname' if `touse'
-  local depvar `r(varlist)'
-  fvrevar `indepnames' if `touse'
-  local indepvars `r(varlist)'
+  foreach varset in dep inexog instd insts {
+    fvrevar ``varset'name' if `touse'
+    local `varset' `r(varlist)'
+    local k`varset': word count ``varset''
+  }
 
   if `"`wtvar'"' != "" {
     cap confirm var `wtvar'
@@ -198,7 +195,7 @@ program define reghdfejl, eclass
     local wtarg , weights = :`wtvar'
   }
 
-  local vars `depvar' `indepvars' `cluster' `wtvar' `absorbvars'
+  local vars `dep' `inexog' `instd' `insts' `cluster' `wtvar' `absorbvars'
   local vars: list uniq vars
   
   local savearg = cond("`residuals'`savefe'`namedfe'"=="", "", ", save = :" + cond("`residuals'"=="", "fe", cond("`savefe'`namedfe'"=="", "residuals", "all")))
@@ -207,10 +204,16 @@ program define reghdfejl, eclass
     python: jl._`var' = np.asarray(Data.get("`var'", selectvar="`touse'", missingval=jl.missing))  # prepend with "_" to avoid conflicts with reserved words
   }
   qui python: jl.seval('df = DataFrame(Dict(s=>eval(Meta.parse("_"*s)) for s in split("`vars'"))); 0')
-  mata: st_local("indepvars", invtokens(tokens("`indepvars'"), "+"))
+
+  mata: st_local("inexog", invtokens(tokens("`inexog'"), "+"))  // put +'s in var lists
+  if `hasiv' {
+    mata: st_local("instd", invtokens(tokens("`instd'"), "+"))
+    mata: st_local("insts", invtokens(tokens("`insts'"), "+"))
+    local ivarg + (`instd' ~ `insts')
+  }
 
   * Estimate!
-  qui python: jl.seval('m = reg(df, @formula(`depvar' ~ `indepvars' `fearg') `wtarg' `vcovarg' `methodopt' `savearg', double_precision=`precision'==64); 0')
+  qui python: jl.seval('m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `fearg') `wtarg' `vcovarg' `methodopt' `savearg', double_precision=`precision'==64); 0')
 
   tempname b V N
   if "`savefe'`namedfe'" != "" {
@@ -233,17 +236,17 @@ program define reghdfejl, eclass
 
   python: Scalar.setValue("`N'", jl.seval('nobs(m)'))
   python: Data.store("`touse'", None, jl.seval('m.esample'), "`touse'")
-  qui python: jl.seval('b = coef(m); I = iszero(`hascons') ? Colon() : [collect(2:length(b)); 1]')
+  qui python: jl.seval('b = coef(m); 0')
+  qui python: jl.seval('I = [1+`kinexog'+`hascons':length(b) ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']; 0')  # cons-exog-endog -> endog-exog-cons
   python: Matrix.store("`b'", np.asarray(jl.seval(" b[I]' ")))
   python: Matrix.store("`V'", np.asarray(jl.seval('replace!(vcov(m)[I,I], NaN=>0.)')))
-  local coefnames `indepnames' `=cond(`hascons', "_cons", "")'
+  local coefnames `instdname' `inexogname' `=cond(`hascons', "_cons", "")'
 
   mat colnames `b' = `coefnames'
   mat colnames `V' = `coefnames'
   mat rownames `V' = `coefnames'
   
-  local k = colsof(`b')
-  forvalues i=1/`k' {
+  forvalues i=1/`=`kinexog'+`kinstd'' {
     if `V'[`i',`i']==0 di as txt "note: `:word `i' of `coefnames'' omitted because of collinearity"
   }
 
@@ -294,13 +297,21 @@ program define reghdfejl, eclass
   ereturn scalar drop_singletons = e(num_singletons) > 0
   ereturn scalar report_constant = `hascons'
   ereturn local depvar `depname'
-  ereturn local indepvars `indepnames'
-  ereturn local title HDFE linear regression with Julia
-  if 0`N_hdfe' ereturn local title2 Absorbing `N_hdfe' HDFE `=plural(`N_hdfe', "group")'
+  ereturn local indepvars `inexogname' `instdname'
+
+  if `hasiv' {
+    ereturn local model iv
+    ereturn local inexog `inexogname'
+    ereturn local instd `instdname'
+    ereturn local insts `instsname'
+  }
+  else ereturn local model ols
+
+  ereturn local title HDFE `=cond(`hasiv', "2SLS", "linear")' regression with Julia
+  if 0`N_hdfe' ereturn local title2 Absorbing `N_hdfe' HDFE `=plural(0`N_hdfe', "group")'
   ereturn local absvars `absorb'
   ereturn local marginsnotok Residuals SCore
   ereturn local predict reghdfe_p
-  ereturn local model ols
   ereturn local cmdline `cmdline'
   ereturn local cmd reghdfejl
 
