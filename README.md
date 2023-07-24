@@ -11,6 +11,13 @@ This package bridges between Stata and the Julia package [FixedEffectModels.jl](
 * The Python packages NumPy and JuliaCall.
 * The Julia packages FixedEffectModels.jl, CUDA.jl, DataFrames.jl, and Vcov.jl.
 
+## Installation
+When more mature, this package will be posted on SSC. For now, install it with
+```
+net install reghdfejl, from(https://raw.github.com/droodman/reghdfejl/v[X.Y.Z])
+```
+where "[X.Y.Z]" represents the [latest release version number](https://github.com/droodman/reghdfejl/releases).
+
 Except for Stata, all required components are freely available. `reghdfejl` will automatically attempt to install the needed Python and Julia packages, and even to install Julia via JuliaCall.
 
 ## Usage
@@ -33,4 +40,6 @@ reghdfejl ln_w grade age ttl_exp tenure (not_smsa = south), absorb(idcode year) 
 ## Development plans
 * Switch to a C plug-in for Stata, to bypass Python and increase speed of data transfer between Stata and Julia.
 * Add suport for `estat summarize` post-estimation.
-* Expand non-absorbed factor variables in Julia rather than Stata, to reduce data transfer between the two. 
+* Expand non-absorbed factor variables in Julia rather than Stata, to reduce data transfer between the two.
+* Add help file.
+* Post to SSC.
