@@ -12,7 +12,7 @@ This package bridges between Stata and the Julia package [FixedEffectModels.jl](
 * The Julia packages FixedEffectModels.jl, CUDA.jl, DataFrames.jl, and Vcov.jl.
 
 ## Installation
-When more mature, this package will be posted on SSC. For now, install it with
+When more mature, this package will be posted on SSC. For now, install it from Stata with
 ```
 net install reghdfejl, from(https://raw.github.com/droodman/reghdfejl/v[X.Y.Z])
 ```
