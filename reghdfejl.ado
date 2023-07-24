@@ -9,14 +9,16 @@ program define reghdfejl, eclass
 		exit 0
 	}
 
-	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust VCE(string) CLuster(string) RESiduals(string) gpu PRECision(integer 64) noConstant NOAbsorb *]
+	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust VCE(string) CLuster(string) RESiduals(string) gpu PRECision(integer 64) noConstant NOAbsorb THReads(integer 4) *]
 
   _assert inlist(`precision',32,64), msg("{cmdab:prec:ision}() option must be 32 or 64.")
 
   _get_diopts diopts options, `options'
 
   if "`gpu'"!="" local methodopt , method = :gpu
-
+  local threadsopt , nthreads = `threads'
+  local precopt , double_precision=`precision'==64
+  
   if `"`options'"' != "" di as inp "`options'" as txt " ignored" _n
 
   local hascons = `"`constant'`absorb'"'==""
@@ -192,16 +194,16 @@ program define reghdfejl, eclass
       tempname wtvar
       gen double `wtvar' = `exp' if `touse'
     }
-    local wtarg , weights = :`wtvar'
+    local wtopt , weights = :`wtvar'
   }
 
   local vars `dep' `inexog' `instd' `insts' `cluster' `wtvar' `absorbvars'
   local vars: list uniq vars
   
-  local savearg = cond("`residuals'`savefe'`namedfe'"=="", "", ", save = :" + cond("`residuals'"=="", "fe", cond("`savefe'`namedfe'"=="", "residuals", "all")))
+  local saveopt = cond("`residuals'`savefe'`namedfe'"=="", "", ", save = :" + cond("`residuals'"=="", "fe", cond("`savefe'`namedfe'"=="", "residuals", "all")))
 
   qui foreach var in `vars' {
-    python: jl._`var' = np.asarray(Data.get("`var'", selectvar="`touse'", missingval=jl.missing))  # prepend with "_" to avoid conflicts with reserved words
+    python: jl._`var' = np.asarray(Data.get("`var'", selectvar="`touse'", missingval=jl.missing))  # prepend with "_" to avoid reserved words
   }
   qui python: jl.seval('df = DataFrame(Dict(s=>eval(Meta.parse("_"*s)) for s in split("`vars'"))); 0')
 
@@ -213,7 +215,7 @@ program define reghdfejl, eclass
   }
 
   * Estimate!
-  qui python: jl.seval('m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `fearg') `wtarg' `vcovarg' `methodopt' `savearg', double_precision=`precision'==64); 0')
+  qui python: jl.seval('m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `fearg') `wtopt' `vcovarg' `methodopt' `threadsopt' `saveopt' `precopt'); 0')
 
   tempname b V N
   if "`savefe'`namedfe'" != "" {
@@ -235,7 +237,7 @@ program define reghdfejl, eclass
   }
 
   python: Scalar.setValue("`N'", jl.seval('nobs(m)'))
-  python: Data.store("`touse'", None, jl.seval('m.esample'), "`touse'")
+  python: Data.store("`touse'", None, np.asarray(jl.seval('m.esample')), "`touse'")
   qui python: jl.seval('b = coef(m); 0')
   qui python: jl.seval('I = [1+`kinexog'+`hascons':length(b) ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']; 0')  # cons-exog-endog -> endog-exog-cons
   python: Matrix.store("`b'", np.asarray(jl.seval(" b[I]' ")))
