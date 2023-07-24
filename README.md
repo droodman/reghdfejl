@@ -21,7 +21,7 @@ where "[X.Y.Z]" represents the [latest release version number](https://github.co
 Except for Stata, all required components are freely available. `reghdfejl` will automatically attempt to install the needed Python and Julia packages, and even to install Julia via JuliaCall.
 
 ## Usage
-Because Julia uses just-in-time compilation, the first time you run `reghdfejl` in a Stata session, it will be slow. THe same goes for the first time you trigger the use of different code within the underlying Julia package, such as by running the first instrumental-variables or GPU-based estimate within a session.
+Because Julia uses just-in-time compilation, the first time you run `reghdfejl` in a Stata session, it is slow. The same goes for the first time you trigger the use of different code within the underlying Julia package, such as by running the first instrumental-variables or GPU-based estimate within a session.
 
 `reghdfejl` ignores reghdfe options that affect the best-fit search algorithm, as well as the rarely-used dofadjustments() option. It accepts three novel options:
 * threads() specifies the number of CPU threads FixedEffectModels.jl should use, for speed. The default is 4.
