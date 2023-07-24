@@ -32,10 +32,10 @@ Because Julia uses just-in-time compilation, the first time you run `reghdfejl` 
 ## Examples
 ```
 webuse nlswork
-reghdfejl ln_w grade age ttl_exp tenure not_smsa south, absorb(idcode year)
-reghdfejl ln_w grade age ttl_exp tenure not_smsa south, absorb(idcode year) vce(robust)
-reghdfejl ln_w grade age ttl_exp tenure not_smsa south, absorb(idcode year) vce(cluster idcode) threads(8)
-reghdfejl ln_w grade age ttl_exp tenure (not_smsa = south), absorb(idcode year) vce(cluster idcode year)
+reghdfejl ln_wage grade age ttl_exp tenure not_smsa south, absorb(idcode year)
+reghdfejl ln_wage grade age ttl_exp tenure not_smsa south, absorb(idcode year) vce(robust)
+reghdfejl ln_wage grade age ttl_exp tenure not_smsa south, absorb(idcode year) vce(cluster idcode) threads(8)
+reghdfejl ln_wage grade age ttl_exp tenure (not_smsa = south), absorb(idcode year) vce(cluster idcode year)
 ```
 
 ## Development plans
