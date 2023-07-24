@@ -1,7 +1,7 @@
 # reghdfejl
 High-dimensional fixed-effect estimation in Stata using Julia.
 
-This package bridges between Stata and the Julia package [FixedEffectModels.jl](https://github.com/FixedEffects/FixedEffectModels.jl), which is inspired by, but faster than, [reghdfe](https://github.com/sergiocorreia/reghdfe). It is designed as a slot-in replacement for reghdfe and [ivreghdfe](https://github.com/sergiocorreia/ivreghdfe). It accepts both the standard OLS and 2SLS specification syntaxes. It offers most options and return values of reghdfe. But since, unlike ivreghdfe, it is not a wrapper for ivreg2, it does not offer advanced features such as CUE, LIML, and first-stage checks. \[But maybe that should change...\]
+This package bridges between Stata and the Julia package [FixedEffectModels.jl](https://github.com/FixedEffects/FixedEffectModels.jl), which is inspired by, but faster than, [reghdfe](https://github.com/sergiocorreia/reghdfe). It is designed as a slot-in replacement for reghdfe and [ivreghdfe](https://github.com/sergiocorreia/ivreghdfe). It accepts both the standard OLS and 2SLS specification syntaxes. It offers most options and return values of reghdfe. But since, unlike `ivreghdfe`, it is not currently a wrapper for ivreg2, so it does not offer advanced features such as CUE, LIML, and first-stage checks.
 
 ## Requirements
 * Stata 16 or later.
@@ -41,5 +41,6 @@ reghdfejl ln_w grade age ttl_exp tenure (not_smsa = south), absorb(idcode year) 
 * Switch to a C plug-in for Stata, to bypass Python and increase speed of data transfer between Stata and Julia.
 * Add suport for `estat summarize` post-estimation.
 * Expand non-absorbed factor variables in Julia rather than Stata, to reduce data transfer between the two.
+* Possibly make it a wrapper for `ivreg2` like `ivreghdfe`.
 * Add help file.
 * Post to SSC.
