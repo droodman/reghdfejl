@@ -25,9 +25,9 @@ where "[X.Y.Z]" represents the [latest release version number](https://github.co
 Because Julia uses just-in-time compilation, the first time you run `reghdfejl` in a Stata session, it is slow. The same goes for the first time you trigger the use of different code within the underlying Julia package, such as by running the first instrumental-variables or GPU-based estimate within a session.
 
 `reghdfejl` ignores reghdfe options that affect the best-fit search algorithm, as well as the rarely-used dofadjustments() option. It accepts three novel options:
-* threads() specifies the number of CPU threads FixedEffectModels.jl should use, for speed. The default is 4.
-* gpu specifies that an [NVIDIA GPU be used for computation](https://github.com/FixedEffects/FixedEffectModels.jl#nvidia-gpu).
-* precision() sets the precision of GPU computation. 64 (double precision) is the default. 32 is also accepted, potentially reducing precision but saving time.
+* `threads()` specifies the number of CPU threads FixedEffectModels.jl should use, for speed. The default is 4.
+* `gpu` specifies that an [NVIDIA GPU be used for computation](https://github.com/FixedEffects/FixedEffectModels.jl#nvidia-gpu).
+* `precision()` sets the precision of GPU computation. 64 (double precision) is the default. 32 is also accepted, potentially reducing precision but saving time.
 
 ## Examples
 ```
