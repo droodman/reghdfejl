@@ -5,7 +5,7 @@ This package bridges between Stata and the Julia package [FixedEffectModels.jl](
 
 ## Requirements
 * Stata 16 or later.
-* [Python 3.0 or later](https://www.python.org/downloads/).
+* [Python 3](https://www.python.org/downloads/).
 * Stata [configured to work with Python](https://www.stata.com/python).
 * [Julia 1.9 or later](https://julialang.org/downloads/), with its location included in the system path.
 * The Python packages NumPy and JuliaCall.
