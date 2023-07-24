@@ -11,6 +11,8 @@ This package bridges between Stata and the Julia package [FixedEffectModels.jl](
 * The Python packages NumPy and JuliaCall.
 * The Julia packages FixedEffectModels.jl, CUDA.jl, DataFrames.jl, and Vcov.jl.
 
+Except for Stata, all required components are freely available. `reghdfejl` will automatically attempt to install the needed Python and Julia packages, and even to install Julia via JuliaCall.
+
 ## Installation
 When more mature, this package will be posted on SSC. For now, install it from Stata with
 ```
@@ -18,7 +20,6 @@ net install reghdfejl, from(https://raw.github.com/droodman/reghdfejl/v[X.Y.Z])
 ```
 where "[X.Y.Z]" represents the [latest release version number](https://github.com/droodman/reghdfejl/releases).
 
-Except for Stata, all required components are freely available. `reghdfejl` will automatically attempt to install the needed Python and Julia packages, and even to install Julia via JuliaCall.
 
 ## Usage
 Because Julia uses just-in-time compilation, the first time you run `reghdfejl` in a Stata session, it is slow. The same goes for the first time you trigger the use of different code within the underlying Julia package, such as by running the first instrumental-variables or GPU-based estimate within a session.
