@@ -39,7 +39,7 @@ reghdfejl ln_wage grade age ttl_exp tenure (not_smsa = south), absorb(idcode yea
 ```
 
 ## Development plans
-* Switch to a C plug-in for Stata, to bypass Python and increase speed of data transfer between Stata and Julia.
+* Switch to a C plug-in for Stata, to bypass Python and greatly speed data transfer between Stata and Julia.
 * Add suport for `estat summarize` post-estimation.
 * Expand non-absorbed factor variables in Julia rather than Stata, to reduce data transfer between the two.
 * Possibly make it a wrapper for `ivreg2` like `ivreghdfe`.
