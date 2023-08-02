@@ -16,7 +16,7 @@ Except for Stata, all required components are freely available. `reghdfejl` will
 ## Installation
 When more mature, this package will be posted on SSC. For now, install it from Stata with
 ```
-net install reghdfejl, from(https://raw.github.com/droodman/reghdfejl/v[X.Y.Z])
+net install reghdfejl, replace from(https://raw.github.com/droodman/reghdfejl/v[X.Y.Z])
 ```
 where "[X.Y.Z]" represents the [latest release version number](https://github.com/droodman/reghdfejl/releases).
 
