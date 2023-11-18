@@ -9,145 +9,55 @@ program define reghdfejl, eclass
 		exit 0
 	}
 
-	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust VCE(string) CLuster(string) RESiduals(string) gpu PRECision(integer 64) noConstant NOAbsorb THReads(integer 4) *]
-
-  _assert inlist(`precision',32,64), msg("{cmdab:prec:ision}() option must be 32 or 64.")
+  local cmdline `0'
+	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust VCE(string) CLuster(string) RESiduals(name) replace gpu noConstant NOAbsorb THReads(integer 4) noSAMPle TOLerance(real 1e-8) *]
+  local sample = "`sample'"==""
 
   _get_diopts diopts options, `options'
 
-  if "`gpu'"!="" local methodopt , method = :gpu
-  local threadsopt , nthreads = `threads'
-  local precopt , double_precision=`precision'==64
-  
-  if `"`options'"' != "" di as inp "`options'" as txt " ignored" _n
+  if `"`options'"' != "" di as inp `"`options'"' as txt " ignored" _n
 
+  marksample touse
+
+  if `tolerance' <=0 {
+    di as err _n "{cmdab:tol:erance()} option not positive."
+    exit 198
+  }
+  
+  if "`gpu'"!="" {
+    if c(os)=="MacOSX" {
+      local gpu
+      di _n "{cmd:gpu} option ignored because it only works on computers with NVIDIA GPUs." _n
+    }
+    else local methodopt , method = :CUDA
+    local CUDA CUDA
+  }
+  local threadsopt , nthreads = `threads'
+  
   local hascons = `"`constant'`absorb'"'==""
 
-  local cmdline `0'
-
-  if !0$reghdfejl_julia_loaded {
-    cap python: 1
-    if _rc {
-      di as err "The {cmd:julia} option requires that Python be installed and Stata be configured to use it."
-      di as err `"See {browse "https://blog.stata.com/2020/08/18/stata-python-integration-part-1-setting-up-stata-to-use-python":instructions}."'
-      exit 198
-    }
-
-    qui python query
-    if "`r(version)'" < "3" {
-      di as err "Stata is currently configured to use Python " `r(version)' ". The {cmd:julia} option requires Python 3."
-      di as err `"See {help python}."'
-      exit 198
-    }
-
-    local pipline = "!py" +  cond(c(os)=="Windows","","thon"+substr("`r(version)'",1,1)) + " -m pip install --user"  // https://packaging.python.org/en/latest/tutorials/installing-packages/#use-pip-for-installing
-    python: from sfi import Data, Matrix, Scalar, Macro
-
-    cap python: import numpy as np
-    if _rc {
-      di "Installing NumPy..."
-      `pipline' numpy
-      cap python: import numpy as np
-      if _rc {
-        di as err _n "The {cmd:julia} option requires the Python package NumPy. Unable to install it automatically, or to find it if installed.."
-        di as err _n "If it just installed successfully, try restarting Stata."
-        di as err `"You can install it {browse "https://numpy.org/install":manually}."'
-        exit 198
-      }
-    }
-    
-    di as txt "Invoking the Julia implementation. The first call in each Stata session is slow."
-    mata displayflush()
-
-    cap python: import juliacall
-
-    if _rc {
-      di "Installing JuliaCall..."
-      `pipline' julia
-      cap python: import juliacall
-    }
-    if _rc {
-      di as err _n "The {cmd:julia} option requires the Python package JuliaCall. Unable to install it automatically."
-      di as err `"You can install it {browse "https://cjdoris.github.io/PythonCall.jl/stable/juliacall/#Installation":manually}."'
-      di as err _n "If it just installed successfully, try restarting Stata."
-      exit 198
-    }
-
-    local pyline import juliacall; jl = juliacall.newmodule("reghdfejl"); from juliacall import Pkg
-    cap python: `pyline'
-    if _rc {
-      di as err _n "Could not automatically initialize the JuliaCall package."
-      exit 198
-    }
-
-    qui python: Scalar.setValue("rc", jl.seval('VERSION < v"1.9.0"')) 
-    if 0`rc' {
-      di as err _n "The {cmd:julia} option requires that Julia 1.9 or higher be installed and accessible by default through the system path."
-      di as err `"Follow {browse "https://julialang.org/downloads/platform":these instructions} for installing it and adding it to the system path."'
-      exit 198
-    }
-
-    foreach pkg in CUDA FixedEffectModels DataFrames Vcov {
-      qui python: jl.seval('using Pkg; p=[v for v in values(Pkg.dependencies()) if v.name=="`pkg'"]')
-      python: Macro.setLocal("rc", str(jl.seval('length(p)')))
-      if `rc'==0 {
-        di "Installing `pkg'.jl..."
-        cap python: Pkg.add("`pkg'")
-        if _rc {
-          di as err _n "Failed to automatically install the Julia package `pkg'.jl."
-          di as err `"You should be able to install it by running Julia and typing {cmd:using Pkg; Pkg.add("`pkg'")}."'
-          exit 198
-        }
-      }
-      python: jl.seval("using `pkg'")
-    }
-
+  if `"$reghdfejl_julia_loaded"'=="" {
+    julia      AddPkg `CUDA' FixedEffectModels DataFrames Vcov
+    julia, qui: using `CUDA',FixedEffectModels,DataFrames,Vcov
     global reghdfejl_julia_loaded 1
   }
 
-  local _anything `anything'  // save results likely about to be overwritten by next syntax command
   local wtvar `exp'
+  if "`weight'"=="pweight" & `"`robust'`cluster'`vce'"'=="" local robust robust  // pweights implies robust
 
   if `"`absorb'"' != "" {
     local hasfe 1
 
-    local 0 `absorb'
-    syntax anything(equalok), [SAVEfe]
-    tokenize `anything', parse(" =")
-
-    local a 1
-    while `"`1'"' != "" {
-      if `"`2'"' == "=" {
-        local fename`a' `1'
-        confirm new var fename`a'
-        macro shift 2
-        local namedfe 1
-      }
-      local ++a
-      local fearg `fearg' `1'
-      macro shift
-    }
-    local absorb `fearg'
-
-    local N_hdfe: word count `fearg'
-    local fearg: subinstr local fearg " " " i.", all
-    fvunab fearg: i.`fearg'
-    local absorbvars `fearg'
-    local fearg: subinstr local fearg "##c." ")*(", all
-    local fearg: subinstr local fearg "#c." ")&(", all
-    local fearg: subinstr local fearg "##i." ")&fe(", all
-    local fearg: subinstr local fearg "#i." ")&fe(", all
-    local fearg: subinstr local fearg "i." "fe(", all
-    local fearg: subinstr local fearg " " ") + ", all
-    local fearg + `fearg')
-
-    local absorbvars: subinstr local absorbvars "i." " ", all
-    local absorbvars: subinstr local absorbvars "c." " ", all
-    local absorbvars: subinstr local absorbvars "#" " ", all
+    ParseAbsorb `absorb'
+    local N_hdfe `r(N_hdfe)'
+    local absorb `r(absorb)'
+    local absorbvars `r(absorbvars)'
+    local feterms `r(feterms)'
+    markout `touse' `absorbvars'
   }
-  else if !0`hascons' local fearg + 0
+  else if !0`hascons' local feterms + 0
 
-  tokenize `_anything'
+  tokenize `anything'
   _fv_check_depvar `1'
   local depname `1'
   macro shift
@@ -155,31 +65,36 @@ program define reghdfejl, eclass
   local hasiv = strpos(`"`*'"', "=")
   if `hasiv' {
     local t = regexm(`"`*'"', "^([^\(]*)\(([^=]*)=([^\)]*)\)(.*)$")
-    fvunab inexogname: `=regexs(1)' `=regexs(4)'
-    fvunab instdname: `= regexs(2)'
-    fvunab instsname: `=regexs(3)'
+    fvexpand `=regexs(1)' `=regexs(4)'
+    local inexogname `r(varlist)'
+    fvexpand `= regexs(2)'
+    local instdname `r(varlist)'
+    fvexpand `=regexs(3)'
+    local instsname `r(varlist)'
   }
-  else local inexogname `*'
+  else {
+    fvexpand `*'
+    local inexogname `r(varlist)'
+  }
 
-  local varlist `depvarname' `instdname' `inexogname' `instsname'
-  marksample touse
-  markout `touse' `absorbvars'
+  local varlist `depname' `instdname' `inexogname' `instsname'
+  markout `touse' `varlist'
 
   if `"`cluster'"' != "" local vce cluster `cluster'  // move clustering vars in cluster() to vce() because _vce_parse can only handle >1 var in latter
   _vce_parse, optlist(Robust) argoptlist(CLuster) pwallowed(robust) old: `wgtexp', `robust' vce(`vce')
 	local vce `r(vceopt)'
 	local robust `r(robust)'
 	local cluster `r(cluster)'
-	markout `touse' `cluster', strok
+	if "`cluster'"!="" markout `touse' `cluster', strok
 
   if "`cluster'"=="" {
     if "`robust'"!="" {
-      local vcovarg , Vcov.robust()
+      local vcovopt , Vcov.robust()
     }
   }
   else {
-    mata st_local("vcovarg", invtokens(":":+tokens("`cluster'"),","))
-    local vcovarg , Vcov.cluster(`vcovarg')
+    mata st_local("vcovopt", invtokens(":":+tokens("`cluster'"),","))
+    local vcovopt , Vcov.cluster(`vcovopt')
   }
 
   foreach varset in dep inexog instd insts {
@@ -199,13 +114,10 @@ program define reghdfejl, eclass
 
   local vars `dep' `inexog' `instd' `insts' `cluster' `wtvar' `absorbvars'
   local vars: list uniq vars
-  
+ 
   local saveopt = cond("`residuals'`savefe'`namedfe'"=="", "", ", save = :" + cond("`residuals'"=="", "fe", cond("`savefe'`namedfe'"=="", "residuals", "all")))
 
-  qui foreach var in `vars' {
-    python: jl._`var' = np.asarray(Data.get("`var'", selectvar="`touse'", missingval=jl.missing))  # prepend with "_" to avoid reserved words
-  }
-  qui python: jl.seval('df = DataFrame(Dict(s=>eval(Meta.parse("_"*s)) for s in split("`vars'"))); 0')
+  julia PutVarsToDFNoMissing `vars' if `touse', dfname(df)  // put all vars in Julia DataFrame
 
   mata: st_local("inexog", invtokens(tokens("`inexog'"), "+"))  // put +'s in var lists
   if `hasiv' {
@@ -215,65 +127,90 @@ program define reghdfejl, eclass
   }
 
   * Estimate!
-  qui python: jl.seval('m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `fearg') `wtopt' `vcovarg' `methodopt' `threadsopt' `saveopt' `precopt'); 0')
+  julia, qui: m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance')
+  tempname b V N t
 
-  tempname b V N
   if "`savefe'`namedfe'" != "" {
-    qui python: jl.seval('FEs = fe(m); 0')
+    julia, qui: FEs = fe(m); replace!.(eachcol(FE), missing=>NaN); join(names(FEs), " ")
+    local FEnamesjl `r(ans)'
     forvalues a = 1/`N_hdfe' {
       if "`savefe'`fename`a''"!="" {
         if "`fename`a''"=="" local fename`a' __hdfe`a'__
-        gen double `fename`a'' = .
-        python: Data.store("`fename`a''", None, jl.seval('FE=FEs[!,`a']; replace!(FE, missing=>NaN)'), "`touse'")
+        julia GetVarsFromDFNoMissing `fename`a'' if `touse', dfname(FEs) `:word `a' of `FEnamesjl''
         label var `fename`a'' "`:word `a' of `absorb''"
       }
     }
   }
 
   if "`residuals'"!="" {
-    gen `residuals' = .
-    qui python: jl.seval('res = residuals(m); replace!(res, missing=>NaN); 0')
-    python: Data.store("`residuals'", None, jl.res, "`touse'")
+    julia, quietly: res = residuals(m); replace!(res, missing=>NaN)
+    julia GetVarsFromMat `residuals' if `touse', source(res) `replace'
   }
 
-  python: Scalar.setValue("`N'", jl.seval('nobs(m)'))
-  python: Data.store("`touse'", None, np.asarray(jl.seval('m.esample')), "`touse'")
-  qui python: jl.seval('b = coef(m); 0')
-  qui python: jl.seval('I = [1+`kinexog'+`hascons':length(b) ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']; 0')  # cons-exog-endog -> endog-exog-cons
-  python: Matrix.store("`b'", np.asarray(jl.seval(" b[I]' ")))
-  python: Matrix.store("`V'", np.asarray(jl.seval('replace!(vcov(m)[I,I], NaN=>0.)')))
-  local coefnames `instdname' `inexogname' `=cond(`hascons', "_cons", "")'
-
-  mat colnames `b' = `coefnames'
-  mat colnames `V' = `coefnames'
-  mat rownames `V' = `coefnames'
-  
-  forvalues i=1/`=`kinexog'+`kinstd'' {
-    if `V'[`i',`i']==0 di as txt "note: `:word `i' of `coefnames'' omitted because of collinearity"
+  julia, qui: SF_scal_save("`N'", nobs(m))
+  if `sample' {
+    julia, qui: esample = Vector{Float64}(m.esample)
+    julia GetVarsFromMat `touse' if `touse', source(esample) replace
   }
 
-  ereturn post `b' `V', depname(`depname') obs(`=`N'') esample(`touse') buildfvinfo findomitted
+  if "`inexog'`ivarg'" == "" {  // if there are no coefficient estimates...
+    local b
+    local V
+  }
+  else {
+    julia, qui: I = [1+`kinexog'+`hascons':length(coef(m)) ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']  // cons-exog-endog -> endog-exog-cons
+    julia, qui: `b' = collect(coef(m)[I]')
+    julia, qui: `V' = replace!(vcov(m)[I,I], NaN=>0.)
+    julia GetMatFromMat `b'
+    julia GetMatFromMat `V'
+    local coefnames `instdname' `inexogname' `=cond(`hascons', "_cons", "")'
+
+    mat colnames `b' = `coefnames'
+    mat colnames `V' = `coefnames'
+    mat rownames `V' = `coefnames'
+   
+    forvalues i=1/`=`kinexog'+`kinstd'' {
+      if `V'[`i',`i']==0 di as txt "note: `:word `i' of `coefnames'' omitted because of collinearity"
+    }
+  }
+  ereturn post `b' `V', depname(`depname') obs(`=`N'') buildfvinfo findomitted `=cond(`sample', "esample(`touse')", "")'
 
   ereturn scalar N_hdfe = 0`N_hdfe'
-  python: Scalar.setValue("e(N_full)", jl.seval('size(df,1)'))
-  
+  julia, qui: SF_scal_save("`t'", size(df,1))
+  ereturn scalar N_full = `t'
   mata st_numscalar("e(rank)", rank(st_matrix("e(V)")))
   ereturn scalar df_m = e(rank)
-  python: Scalar.setValue("e(df_r)", jl.seval('dof_residual(m)'))
-  python: Scalar.setValue("e(rss)", jl.seval('rss(m)'))
-  python: Scalar.setValue("e(mss)", jl.seval('mss(m)'))
-  python: Scalar.setValue("e(r2)", jl.seval('r2(m)'))
-  python: Scalar.setValue("e(r2_a)", jl.seval('adjr2(m)'))
-  python: Scalar.setValue("e(F)", jl.seval('m.F'))
-  python: Scalar.setValue("e(ic)", jl.seval('m.iterations'))
-  python: Scalar.setValue("e(converged)", jl.seval('m.converged'))
-  python: Scalar.setValue("e(num_singletons)", jl.seval('size(df,1) - nobs(m)'))
+  julia, qui: SF_scal_save("`t'", dof_residual(m))
+  ereturn scalar df_r = `t'
+  julia, qui: SF_scal_save("`t'", rss(m))
+  ereturn scalar rss = `t'
+  julia, qui: SF_scal_save("`t'", mss(m))
+  ereturn scalar mss = `t'
+  julia, qui: SF_scal_save("`t'", r2(m))
+  ereturn scalar r2`' = `t'
+  julia, qui: SF_scal_save("`t'", adjr2(m))
+  ereturn scalar r2_a = `t'
+  julia, qui: SF_scal_save("`t'", m.F)
+  ereturn scalar F = `t'
+  julia, qui: SF_scal_save("`t'", m.iterations)
+  ereturn scalar ic = `t'
+  julia, qui: SF_scal_save("`t'", m.converged)
+  ereturn scalar converged = `t'
+  julia, qui: SF_scal_save("`t'", size(df,1) - nobs(m))
+  ereturn scalar num_singletons = `t'
   scalar rmse = e(rss) / (e(N) - e(df_a) - e(rank))
-  scalar ll  = -e(N)/2*(1 + log(2*_pi / e(N) *  e(rss)          ))
-  scalar ll0 = -e(N)/2*(1 + log(2*_pi / e(N) * (e(rss) + e(mss))))
-  if 0`hasfe' python: Scalar.setValue("e(r2_within)", jl.seval('m.r2_within'))
+  ereturn scalar ll  = -e(N)/2*(1 + log(2*_pi / e(N) *  e(rss)          ))
+  ereturn scalar ll0 = -e(N)/2*(1 + log(2*_pi / e(N) * (e(rss) + e(mss))))
+  if 0`hasfe' {
+    julia, qui: SF_scal_save("`t'", m.r2_within)
+    ereturn scalar r2_within = `t'
+  }
+
   if "`wtvar'"=="" ereturn scalar sumweights = e(N)
-    else python: Scalar.setValue("e(sumweights)", jl.seval('mapreduce((w,s)->(s ? w : 0), +, _`wtvar', m.esample; init = 0)'))
+  else {
+    julia, qui: SF_scal_save("`t'", mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0))
+    ereturn scalar sumweights = `t'
+  }
 
   if "`cluster'`robust'"=="" ereturn local vce ols
   else {
@@ -289,9 +226,11 @@ program define reghdfejl, eclass
       tokenize `cluster'
       forvalues i=1/`e(N_clustervars)' {
         ereturn local clustvar`i' ``i''
-        python: Scalar.setValue("e(N_clust`i')", jl.seval('m.nclusters[`i']'))
+        julia, qui: SF_scal_save("`t'", m.nclusters[`i'])
+        ereturn scalar N_clust`i' = `t'
       }
-      python: Scalar.setValue("e(N_clust)", jl.seval('minimum(m.nclusters)'))
+      julia, qui: SF_scal_save("`t'", minimum(m.nclusters))
+      ereturn scalar N_clust = `t'
       ereturn local title3 Statistics cluster-robust
     }
   }
@@ -336,7 +275,7 @@ program define Display
   di as txt               _col(51) "Adj R-squared" _col(67) "= " as res %10.4f e(r2_a)
 
   forvalues i=1/0`e(N_clustervars)' {
-    local line`i' as txt "Number of clusters(" as res e(clustvar`i') ")" _col(30) "= " as res %10.0f e(N_clust`i')
+    local line`i' as txt "Number of clusters (" as res e(clustvar`i') as txt ")" _col(29) " = " as res %10.0f e(N_clust`i')
   }
   di `line1' _col(51) as txt "Within R-sq." _col(67) "= " as res %10.4f e(r2_within)
   di `line2' _col(51) as txt "Root MSE"     _col(67) "= " as res %10.4f e(rmse)
@@ -345,4 +284,45 @@ program define Display
   }
   di
   ereturn display, level(`level') `diopts'
+end
+
+cap program drop ParseAbsorb
+program define ParseAbsorb, rclass
+  syntax anything(equalok), [SAVEfe]
+  tokenize `anything', parse(" =")
+
+  local a 1
+  while `"`1'"' != "" {
+    if `"`2'"' == "=" {
+      local fename`a' `1'
+      confirm new var fename`a'
+      macro shift 2
+      local namedfe 1
+    }
+    local ++a
+    local feterms `feterms' `1'
+    macro shift
+  }
+  return local absorb `feterms'
+
+  return local N_hdfe: word count `feterms'
+  local feterms: subinstr local feterms " " " i.", all
+  fvunab _feterms: i.`feterms'
+  local feterms
+  foreach exp in `_feterms' {  // drop un-prefixed continuous terms from ## expansion
+    if substr("`exp'",1,2)=="i." local feterms `feterms' `exp'
+  }
+
+  local absorbvars `feterms'
+  local feterms: subinstr local feterms "##c." ")*(", all
+  local feterms: subinstr local feterms "#c." ")&(", all
+  local feterms: subinstr local feterms "##i." ")&fe(", all
+  local feterms: subinstr local feterms "#i." ")&fe(", all
+  local feterms: subinstr local feterms "i." "fe(", all
+  local feterms: subinstr local feterms " " ") + ", all
+  return local feterms + `feterms')
+
+  local absorbvars: subinstr local absorbvars "i." " ", all
+  local absorbvars: subinstr local absorbvars "c." " ", all
+  return local absorbvars: subinstr local absorbvars "#" " ", all
 end
