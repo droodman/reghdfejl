@@ -26,8 +26,8 @@ program define reghdfejl, eclass
   
   if "`gpu'"!="" {
     if c(os)=="MacOSX" {
-      local gpu
       di _n "{cmd:gpu} option ignored because it only works on computers with NVIDIA GPUs." _n
+      local gpu
     }
     else local methodopt , method = :CUDA
     local CUDA CUDA
@@ -117,7 +117,7 @@ program define reghdfejl, eclass
  
   local saveopt = cond("`residuals'`savefe'`namedfe'"=="", "", ", save = :" + cond("`residuals'"=="", "fe", cond("`savefe'`namedfe'"=="", "residuals", "all")))
 
-  julia PutVarsToDFNoMissing `vars' if `touse', dfname(df)  // put all vars in Julia DataFrame
+  julia PutVarsToDFNoMissing `vars' if `touse'  // put all vars in Julia DataFrame named df
 
   mata: st_local("inexog", invtokens(tokens("`inexog'"), "+"))  // put +'s in var lists
   if `hasiv' {
@@ -136,21 +136,24 @@ program define reghdfejl, eclass
     forvalues a = 1/`N_hdfe' {
       if "`savefe'`fename`a''"!="" {
         if "`fename`a''"=="" local fename`a' __hdfe`a'__
-        julia GetVarsFromDFNoMissing `fename`a'' if `touse', dfname(FEs) `:word `a' of `FEnamesjl''
+        julia GetVarsFromDF `fename`a'' if `touse', source(FEs) `:word `a' of `FEnamesjl''
         label var `fename`a'' "`:word `a' of `absorb''"
       }
     }
+    julia, qui: FEs = nothing
   }
 
   if "`residuals'"!="" {
     julia, quietly: res = residuals(m); replace!(res, missing=>NaN)
     julia GetVarsFromMat `residuals' if `touse', source(res) `replace'
+    julia, qui: res = nothing
   }
 
   julia, qui: SF_scal_save("`N'", nobs(m))
   if `sample' {
     julia, qui: esample = Vector{Float64}(m.esample)
     julia GetVarsFromMat `touse' if `touse', source(esample) replace
+    julia, qui: esample = nothing
   }
 
   if "`inexog'`ivarg'" == "" {  // if there are no coefficient estimates...
@@ -255,6 +258,8 @@ program define reghdfejl, eclass
   ereturn local predict reghdfe_p
   ereturn local cmdline `cmdline'
   ereturn local cmd reghdfejl
+
+  julia, qui: df = nothing  // yield memory
 
   Display, `diopts'
 end
