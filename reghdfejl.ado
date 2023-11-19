@@ -29,16 +29,21 @@ program define reghdfejl, eclass
       di _n "{cmd:gpu} option ignored because it only works on computers with NVIDIA GPUs." _n
       local gpu
     }
-    else local methodopt , method = :CUDA
-    local CUDA CUDA
+    else {
+      local methodopt , method = :CUDA
+      if `"$reghdfejl_julia_loaded"'=="" {
+        julia      AddPkg CUDA
+        julia, qui: using CUDA
+      }
+    }
   }
   local threadsopt , nthreads = `threads'
   
   local hascons = `"`constant'`absorb'"'==""
 
   if `"$reghdfejl_julia_loaded"'=="" {
-    julia      AddPkg `CUDA' FixedEffectModels DataFrames Vcov
-    julia, qui: using `CUDA',FixedEffectModels,DataFrames,Vcov
+    julia      AddPkg FixedEffectModels DataFrames Vcov
+    julia, qui: using FixedEffectModels,DataFrames,Vcov
     global reghdfejl_julia_loaded 1
   }
 
@@ -183,6 +188,8 @@ program define reghdfejl, eclass
   ereturn scalar N_full = `t'
   mata st_numscalar("e(rank)", rank(st_matrix("e(V)")))
   ereturn scalar df_m = e(rank)
+  julia, qui: SF_scal_save("`t'", dof_fes(m))
+  ereturn scalar df_a = `t'
   julia, qui: SF_scal_save("`t'", dof_residual(m))
   ereturn scalar df_r = `t'
   julia, qui: SF_scal_save("`t'", rss(m))
@@ -201,9 +208,10 @@ program define reghdfejl, eclass
   ereturn scalar converged = `t'
   julia, qui: SF_scal_save("`t'", size(df,1) - nobs(m))
   ereturn scalar num_singletons = `t'
-  scalar rmse = e(rss) / (e(N) - e(df_a) - e(rank))
+  ereturn scalar rmse = sqrt(e(rss) / (e(N) - e(df_a) - e(rank)))
   ereturn scalar ll  = -e(N)/2*(1 + log(2*_pi / e(N) *  e(rss)          ))
   ereturn scalar ll0 = -e(N)/2*(1 + log(2*_pi / e(N) * (e(rss) + e(mss))))
+
   if 0`hasfe' {
     julia, qui: SF_scal_save("`t'", m.r2_within)
     ereturn scalar r2_within = `t'
