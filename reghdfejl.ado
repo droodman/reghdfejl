@@ -29,21 +29,15 @@ program define reghdfejl, eclass
       di _n "{cmd:gpu} option ignored because it only works on computers with NVIDIA GPUs." _n
       local gpu
     }
-    else {
-      local methodopt , method = :CUDA
-      if `"$reghdfejl_julia_loaded"'=="" {
-        julia      AddPkg CUDA
-        julia, qui: using CUDA
-      }
-    }
+    else local methodopt , method = :CUDA
   }
   local threadsopt , nthreads = `threads'
   
   local hascons = `"`constant'`absorb'"'==""
 
   if `"$reghdfejl_julia_loaded"'=="" {
-    julia      AddPkg FixedEffectModels DataFrames Vcov
-    julia, qui: using FixedEffectModels,DataFrames,Vcov
+    julia      AddPkg CUDA FixedEffectModels DataFrames Vcov
+    julia, qui: using CUDA,FixedEffectModels,DataFrames,Vcov
     global reghdfejl_julia_loaded 1
   }
 
