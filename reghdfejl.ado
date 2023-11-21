@@ -97,10 +97,11 @@ program define reghdfejl, eclass
   }
 
   foreach varset in dep inexog instd insts {
-    if "``varset'name'" != "" {
+    if strpos("``varset'name'", ".") {
       fvrevar ``varset'name' if `touse'
       local `varset' `r(varlist)'
     }
+    else local `varset' ``varset'name'
     local k`varset': word count ``varset''
   }
   _assert `kdep'==1, msg("Multiple dependent variables specified.") rc(198) 
@@ -130,6 +131,7 @@ program define reghdfejl, eclass
 
   * Estimate!
   julia, qui: m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance')
+
   tempname b V N t
 
   if "`savefe'`namedfe'" != "" {
