@@ -5,6 +5,7 @@ This package bridges between Stata and the Julia package [FixedEffectModels.jl](
 
 ## Requirements
 * Stata 14.1 or later.
+* The Stata package [julia.ado](https://github.com/droodman/julia.ado).
 * Julia 1.9 or later, with its installed location added to the system path per the [instructions](https://julialang.org/downloads).
 
 ## Installation
