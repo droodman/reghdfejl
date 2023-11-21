@@ -36,8 +36,8 @@ program define reghdfejl, eclass
   local hascons = `"`constant'`absorb'"'==""
 
   if `"$reghdfejl_julia_loaded"'=="" {
-    julia      AddPkg CUDA FixedEffectModels DataFrames Vcov
-    julia, qui: using CUDA,FixedEffectModels,DataFrames,Vcov
+    jl      AddPkg CUDA FixedEffectModels DataFrames Vcov
+    jl, qui: using CUDA,FixedEffectModels,DataFrames,Vcov
     global reghdfejl_julia_loaded 1
   }
 
@@ -120,7 +120,7 @@ program define reghdfejl, eclass
  
   local saveopt = cond("`residuals'`savefe'`namedfe'"=="", "", ", save = :" + cond("`residuals'"=="", "fe", cond("`savefe'`namedfe'"=="", "residuals", "all")))
 
-  julia PutVarsToDFNoMissing `vars' if `touse'  // put all vars in Julia DataFrame named df
+  jl PutVarsToDFNoMissing `vars' if `touse'  // put all vars in Julia DataFrame named df
 
   mata: st_local("inexog", invtokens(tokens("`inexog'"), "+"))  // put +'s in var lists
   if `hasiv' {
@@ -130,34 +130,34 @@ program define reghdfejl, eclass
   }
 
   * Estimate!
-  julia, qui: m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance')
+  jl, qui: m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance')
 
   tempname b V N t
 
   if "`savefe'`namedfe'" != "" {
-    julia, qui: FEs = fe(m); replace!.(eachcol(FE), missing=>NaN); join(names(FEs), " ")
+    jl, qui: FEs = fe(m); replace!.(eachcol(FE), missing=>NaN); join(names(FEs), " ")
     local FEnamesjl `r(ans)'
     forvalues a = 1/`N_hdfe' {
       if "`savefe'`fename`a''"!="" {
         if "`fename`a''"=="" local fename`a' __hdfe`a'__
-        julia GetVarsFromDF `fename`a'' if `touse', source(FEs) `:word `a' of `FEnamesjl''
+        jl GetVarsFromDF `fename`a'' if `touse', source(FEs) `:word `a' of `FEnamesjl''
         label var `fename`a'' "`:word `a' of `absorb''"
       }
     }
-    julia, qui: FEs = nothing
+    jl, qui: FEs = nothing
   }
 
   if "`residuals'"!="" {
-    julia, quietly: res = residuals(m); replace!(res, missing=>NaN)
-    julia GetVarsFromMat `residuals' if `touse', source(res) `replace'
-    julia, qui: res = nothing
+    jl, quietly: res = residuals(m); replace!(res, missing=>NaN)
+    jl GetVarsFromMat `residuals' if `touse', source(res) `replace'
+    jl, qui: res = nothing
   }
 
-  julia, qui: SF_scal_save("`N'", nobs(m))
+  jl, qui: SF_scal_save("`N'", nobs(m))
   if `sample' {
-    julia, qui: esample = Vector{Float64}(m.esample)
-    julia GetVarsFromMat `touse' if `touse', source(esample) replace
-    julia, qui: esample = nothing
+    jl, qui: esample = Vector{Float64}(m.esample)
+    jl GetVarsFromMat `touse' if `touse', source(esample) replace
+    jl, qui: esample = nothing
   }
 
   if "`inexog'`ivarg'" == "" {  // if there are no coefficient estimates...
@@ -165,11 +165,11 @@ program define reghdfejl, eclass
     local V
   }
   else {
-    julia, qui: I = [1+`kinexog'+`hascons':length(coef(m)) ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']  // cons-exog-endog -> endog-exog-cons
-    julia, qui: `b' = collect(coef(m)[I]')
-    julia, qui: `V' = replace!(vcov(m)[I,I], NaN=>0.)
-    julia GetMatFromMat `b'
-    julia GetMatFromMat `V'
+    jl, qui: I = [1+`kinexog'+`hascons':length(coef(m)) ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']  // cons-exog-endog -> endog-exog-cons
+    jl, qui: `b' = collect(coef(m)[I]')
+    jl, qui: `V' = replace!(vcov(m)[I,I], NaN=>0.)
+    jl GetMatFromMat `b'
+    jl GetMatFromMat `V'
     local coefnames `instdname' `inexogname' `=cond(`hascons', "_cons", "")'
 
     mat colnames `b' = `coefnames'
@@ -183,42 +183,42 @@ program define reghdfejl, eclass
   ereturn post `b' `V', depname(`depname') obs(`=`N'') buildfvinfo findomitted `=cond(`sample', "esample(`touse')", "")'
 
   ereturn scalar N_hdfe = 0`N_hdfe'
-  julia, qui: SF_scal_save("`t'", size(df,1))
+  jl, qui: SF_scal_save("`t'", size(df,1))
   ereturn scalar N_full = `t'
   mata st_numscalar("e(rank)", rank(st_matrix("e(V)")))
   ereturn scalar df_m = e(rank)
-  julia, qui: SF_scal_save("`t'", dof_fes(m))
+  jl, qui: SF_scal_save("`t'", dof_fes(m))
   ereturn scalar df_a = `t'
-  julia, qui: SF_scal_save("`t'", dof_residual(m))
+  jl, qui: SF_scal_save("`t'", dof_residual(m))
   ereturn scalar df_r = `t'
-  julia, qui: SF_scal_save("`t'", rss(m))
+  jl, qui: SF_scal_save("`t'", rss(m))
   ereturn scalar rss = `t'
-  julia, qui: SF_scal_save("`t'", mss(m))
+  jl, qui: SF_scal_save("`t'", mss(m))
   ereturn scalar mss = `t'
-  julia, qui: SF_scal_save("`t'", r2(m))
+  jl, qui: SF_scal_save("`t'", r2(m))
   ereturn scalar r2`' = `t'
-  julia, qui: SF_scal_save("`t'", adjr2(m))
+  jl, qui: SF_scal_save("`t'", adjr2(m))
   ereturn scalar r2_a = `t'
-  julia, qui: SF_scal_save("`t'", m.F)
+  jl, qui: SF_scal_save("`t'", m.F)
   ereturn scalar F = `t'
-  julia, qui: SF_scal_save("`t'", m.iterations)
+  jl, qui: SF_scal_save("`t'", m.iterations)
   ereturn scalar ic = `t'
-  julia, qui: SF_scal_save("`t'", m.converged)
+  jl, qui: SF_scal_save("`t'", m.converged)
   ereturn scalar converged = `t'
-  julia, qui: SF_scal_save("`t'", size(df,1) - nobs(m))
+  jl, qui: SF_scal_save("`t'", size(df,1) - nobs(m))
   ereturn scalar num_singletons = `t'
   ereturn scalar rmse = sqrt(e(rss) / (e(N) - e(df_a) - e(rank)))
   ereturn scalar ll  = -e(N)/2*(1 + log(2*_pi / e(N) *  e(rss)          ))
   ereturn scalar ll0 = -e(N)/2*(1 + log(2*_pi / e(N) * (e(rss) + e(mss))))
 
   if 0`hasfe' {
-    julia, qui: SF_scal_save("`t'", m.r2_within)
+    jl, qui: SF_scal_save("`t'", m.r2_within)
     ereturn scalar r2_within = `t'
   }
 
   if "`wtvar'"=="" ereturn scalar sumweights = e(N)
   else {
-    julia, qui: SF_scal_save("`t'", mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0))
+    jl, qui: SF_scal_save("`t'", mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0))
     ereturn scalar sumweights = `t'
   }
 
@@ -236,10 +236,10 @@ program define reghdfejl, eclass
       tokenize `cluster'
       forvalues i=1/`e(N_clustervars)' {
         ereturn local clustvar`i' ``i''
-        julia, qui: SF_scal_save("`t'", m.nclusters[`i'])
+        jl, qui: SF_scal_save("`t'", m.nclusters[`i'])
         ereturn scalar N_clust`i' = `t'
       }
-      julia, qui: SF_scal_save("`t'", minimum(m.nclusters))
+      jl, qui: SF_scal_save("`t'", minimum(m.nclusters))
       ereturn scalar N_clust = `t'
       ereturn local title3 Statistics cluster-robust
     }
@@ -266,7 +266,7 @@ program define reghdfejl, eclass
   ereturn local cmdline `cmdline'
   ereturn local cmd reghdfejl
 
-  julia, qui: df = nothing  // yield memory
+  jl, qui: df = nothing  // yield memory
 
   Display, `diopts'
 end
