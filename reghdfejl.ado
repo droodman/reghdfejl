@@ -97,10 +97,13 @@ program define reghdfejl, eclass
   }
 
   foreach varset in dep inexog instd insts {
-    fvrevar ``varset'name' if `touse'
-    local `varset' `r(varlist)'
+    if "``varset'name'" != "" {
+      fvrevar ``varset'name' if `touse'
+      local `varset' `r(varlist)'
+    }
     local k`varset': word count ``varset''
   }
+  _assert `kdep'==1, msg("Multiple dependent variables specified.") rc(198) 
 
   if `"`wtvar'"' != "" {
     cap confirm var `wtvar'
