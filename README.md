@@ -1,7 +1,7 @@
 # reghdfejl
 High-dimensional fixed-effect estimation in Stata using Julia.
 
-This package bridges between Stata and the Julia package [FixedEffectModels.jl](https://github.com/FixedEffects/FixedEffectModels.jl), which is inspired by, but faster than, [`reghdfe`](https://github.com/sergiocorreia/reghdfe). It is designed as a slot-in replacement for `reghdfe` and [`ivreghdfe`](https://github.com/sergiocorreia/ivreghdfe). It accepts both the standard OLS and 2SLS specification syntaxes. It offers most options and return values of `reghdfe`. But since, unlike `ivreghdfe`, it is not currently a wrapper for [`ivreg2`](https://ideas.repec.org/c/boc/bocode/s425401.html), so it does not offer advanced features such as CUE, LIML, and first-stage checks.
+This package bridges between Stata and the Julia package [FixedEffectModels.jl](https://github.com/FixedEffects/FixedEffectModels.jl), which is inspired by, but faster than, [`reghdfe`](https://github.com/sergiocorreia/reghdfe). It is designed as a slot-in replacement for `reghdfe` and [`ivreghdfe`](https://github.com/sergiocorreia/ivreghdfe). It accepts both the standard OLS and 2SLS specification syntaxes. It offers most options and return values of `reghdfe`. But since, unlike `ivreghdfe`, it is not currently a wrapper for [`ivreg2`](https://ideas.repec.org/c/boc/bocode/s425401.html), it does not offer advanced features such as CUE, LIML, and first-stage checks.
 
 ## Requirements
 * Stata 14.1 or later.
