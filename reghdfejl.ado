@@ -1,3 +1,30 @@
+*! reghdfejl 0.2.1 24 November 2023
+
+// The MIT License (MIT)
+//
+// Copyright (c) 2023 David Roodman
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+
+*! Version history at bottom
+
 cap program drop reghdfejl
 program define reghdfejl, eclass
   version 16
@@ -10,60 +37,62 @@ program define reghdfejl, eclass
 	}
 
   local cmdline `0'
-	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust VCE(string) CLuster(string) RESiduals(name) replace gpu noConstant NOAbsorb THReads(integer 4) noSAMPle TOLerance(real 1e-8) *]
+	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
+                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE *]
   local sample = "`sample'"==""
 
+  _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
+  _assert `tolerance'>0, msg("{cmdab:tol:erance()} must be positive.") rc(198)
+  
   _get_diopts diopts options, `options'
 
-  if `"`options'"' != "" di as inp `"`options'"' as txt " ignored" _n
-
   marksample touse
-
-  if `tolerance' <=0 {
-    di as err _n "{cmdab:tol:erance()} option not positive."
-    exit 198
-  }
   
   if "`gpu'"!="" {
-    if c(os)=="MacOSX" {
-      di _n "{cmd:gpu} option ignored because it only works on computers with NVIDIA GPUs." _n
-      local gpu
-    }
-    else local methodopt , method = :CUDA
+    local gpu = cond(c(os)=="MacOSX", "Metal", "CUDA")
+    local methodopt , method = :`gpu'
   }
-  local threadsopt , nthreads = `threads'
+
+  if `threads' local threadsopt , nthreads = `threads'
   
   local hascons = `"`constant'`absorb'"'==""
 
-  if `"$reghdfejl_julia_loaded"'=="" {
-    jl      AddPkg CUDA FixedEffectModels DataFrames Vcov
-    jl, qui: using CUDA,FixedEffectModels,DataFrames,Vcov
-    global reghdfejl_julia_loaded 1
+  if `"$reghdfejl_loaded"'=="" {
+    cap jl: nothing
+    if _rc {
+      di as err `"Can't access Julia. {cmd:reghdfejl} requires that {browse "https://github.com/JuliaLang/juliaup#installation":Julia be installed}."'
+      di as err "And it requires that the Stata package {cmd:jl} be installed, via {stata ssc install jl}."
+      exit 198
+    }
+    jl      AddPkg `gpu' FixedEffectModels DataFrames Vcov
+    jl, qui: using `gpu',FixedEffectModels,DataFrames,Vcov
+    global reghdfejl_loaded 1
   }
 
   local wtvar `exp'
   if "`weight'"=="pweight" & `"`robust'`cluster'`vce'"'=="" local robust robust  // pweights implies robust
 
   if `"`absorb'"' != "" {
-    local hasfe 1
-
     ParseAbsorb `absorb'
     local N_hdfe `r(N_hdfe)'
     local absorb `r(absorb)'
     local absorbvars `r(absorbvars)'
     local feterms `r(feterms)'
+    local fenames `r(fenames)'
+    local savefe `r(savefe)'
+    local namedfe `r(namedfe)'
+
     markout `touse' `absorbvars'
   }
   else if !0`hascons' local feterms + 0
 
   tokenize `anything'
-  _fv_check_depvar `1'
   local depname `1'
   macro shift
 
   local hasiv = strpos(`"`*'"', "=")
   if `hasiv' {
-    local t = regexm(`"`*'"', "^([^\(]*)\(([^=]*)=([^\)]*)\)(.*)$")
+    local t = regexm(`"`*'"', "^([^\(]*)\(([^=]*)=([^\)]*)\)(.*)$")  // standard IV syntax
     fvexpand `=regexs(1)' `=regexs(4)'
     local inexogname `r(varlist)'
     fvexpand `= regexs(2)'
@@ -80,7 +109,7 @@ program define reghdfejl, eclass
   markout `touse' `varlist'
 
   if `"`cluster'"' != "" local vce cluster `cluster'  // move clustering vars in cluster() to vce() because _vce_parse can only handle >1 var in latter
-  _vce_parse, optlist(Robust) argoptlist(CLuster) pwallowed(robust) old: `wgtexp', `robust' vce(`vce')
+  _vce_parse, optlist(Robust UNadjusted ols) argoptlist(CLuster) pwallowed(robust) old: `wgtexp', `robust' vce(`vce')
 	local vce `r(vceopt)'
 	local robust `r(robust)'
 	local cluster `r(cluster)'
@@ -117,7 +146,18 @@ program define reghdfejl, eclass
 
   local vars `dep' `inexog' `instd' `insts' `cluster' `wtvar' `absorbvars'
   local vars: list uniq vars
- 
+
+  if "`residuals'" != "" {
+    cap drop _reghdfejl_resid
+    local residuals _reghdfejl_resid
+  }
+  else {
+    local 0, `options'
+    syntax, [RESIDuals(name) *]
+  }
+
+  if `"`options'"' != "" di as inp `"`options'"' as txt " ignored" _n
+
   local saveopt = cond("`residuals'`savefe'`namedfe'"=="", "", ", save = :" + cond("`residuals'"=="", "fe", cond("`savefe'`namedfe'"=="", "residuals", "all")))
 
   jl PutVarsToDFNoMissing `vars' if `touse'  // put all vars in Julia DataFrame named df
@@ -130,18 +170,16 @@ program define reghdfejl, eclass
   }
 
   * Estimate!
-  jl, qui: m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance')
-
-  tempname b V N t
+  jl, qui: m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance', maxiter=`iterations')
 
   if "`savefe'`namedfe'" != "" {
-    jl, qui: FEs = fe(m); replace!.(eachcol(FE), missing=>NaN); join(names(FEs), " ")
-    local FEnamesjl `r(ans)'
+    jl, qui: FEs = fe(m); SF_macro_save("reghdfejl_FEnames", join(names(FEs), " "))
     forvalues a = 1/`N_hdfe' {
-      if "`savefe'`fename`a''"!="" {
-        if "`fename`a''"=="" local fename`a' __hdfe`a'__
-        jl GetVarsFromDF `fename`a'' if `touse', source(FEs) `:word `a' of `FEnamesjl''
-        label var `fename`a'' "`:word `a' of `absorb''"
+      local fename: word `a' of `fenames'
+      if "`savefe'`fename'"!="" {
+        if "`fename"=="" local fename __hdfe`a'__
+        jl GetVarsFromDF `fename' if `touse', source(FEs) col(`:word `a' of $reghdfejl_FEnames')
+        label var `fename' "[FE] `:word `a' of `absorb''"
       }
     }
     jl, qui: FEs = nothing
@@ -150,21 +188,22 @@ program define reghdfejl, eclass
   if "`residuals'"!="" {
     jl, quietly: res = residuals(m); replace!(res, missing=>NaN)
     jl GetVarsFromMat `residuals' if `touse', source(res) `replace'
+    label var `residuals' "Residuals"
     jl, qui: res = nothing
   }
 
-  jl, qui: SF_scal_save("`N'", nobs(m))
+  tempname t
+
+  jl, qui: SF_scal_save("`t'", nobs(m))
   if `sample' {
     jl, qui: esample = Vector{Float64}(m.esample)
     jl GetVarsFromMat `touse' if `touse', source(esample) replace
     jl, qui: esample = nothing
   }
 
-  if "`inexog'`ivarg'" == "" {  // if there are no coefficient estimates...
-    local b
-    local V
-  }
-  else {
+  if "`inexog'`ivarg'" != "" {  // if there are no coefficient estimates...
+    tempname b V
+
     jl, qui: I = [1+`kinexog'+`hascons':length(coef(m)) ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']  // cons-exog-endog -> endog-exog-cons
     jl, qui: `b' = collect(coef(m)[I]')
     jl, qui: `V' = replace!(vcov(m)[I,I], NaN=>0.)
@@ -180,7 +219,7 @@ program define reghdfejl, eclass
       if `V'[`i',`i']==0 di as txt "note: `:word `i' of `coefnames'' omitted because of collinearity"
     }
   }
-  ereturn post `b' `V', depname(`depname') obs(`=`N'') buildfvinfo findomitted `=cond(`sample', "esample(`touse')", "")'
+  ereturn post `b' `V', depname(`depname') obs(`=`t'') buildfvinfo findomitted `=cond(`sample', "esample(`touse')", "")'
 
   ereturn scalar N_hdfe = 0`N_hdfe'
   jl, qui: SF_scal_save("`t'", size(df,1))
@@ -211,7 +250,7 @@ program define reghdfejl, eclass
   ereturn scalar ll  = -e(N)/2*(1 + log(2*_pi / e(N) *  e(rss)          ))
   ereturn scalar ll0 = -e(N)/2*(1 + log(2*_pi / e(N) * (e(rss) + e(mss))))
 
-  if 0`hasfe' {
+  if 0`N_hdfe' {
     jl, qui: SF_scal_save("`t'", m.r2_within)
     ereturn scalar r2_within = `t'
   }
@@ -249,6 +288,7 @@ program define reghdfejl, eclass
   ereturn scalar report_constant = `hascons'
   ereturn local depvar `depname'
   ereturn local indepvars `inexogname' `instdname'
+  ereturn local resid `residuals'
 
   if `hasiv' {
     ereturn local model iv
@@ -262,60 +302,68 @@ program define reghdfejl, eclass
   if 0`N_hdfe' ereturn local title2 Absorbing `N_hdfe' HDFE `=plural(0`N_hdfe', "group")'
   ereturn local absvars `absorb'
   ereturn local marginsnotok Residuals SCore
-  ereturn local predict reghdfe_p
+  ereturn local predict reghdfejl_p
+  ereturn local estat_cmd reghdfejl_estat
   ereturn local cmdline `cmdline'
   ereturn local cmd reghdfejl
 
   jl, qui: df = nothing  // yield memory
 
-  Display, `diopts'
+  Display, `diopts' level(`level') `noheader' `notable'
 end
 
 cap program drop Display
 program define Display
   version 16
-  syntax [, Level(real `c(level)') *]
+  syntax [, Level(real `c(level)') noHEADer notable *]
   _get_diopts diopts, `options'
 
-  if e(drop_singletons) di as txt `"(dropped `e(num_singletons)' {browse "http://scorreia.com/research/singletons.pdf":singleton observations})"'
-  di as txt `"({browse "http://scorreia.com/research/hdfe.pdf":MWFE estimator} converged in `e(ic)' iterations)"'
-  di
-  di as txt "`e(title)' " _col(51) "Number of obs" _col(67) "= " as res %10.0fc e(N)
-  di as txt "`e(title2)'" _col(51) "F(" as res %4.0f e(df_m) as txt "," as res %7.0f e(df_r)-e(report_constant) as txt ")" _col(67) "= " as res %10.2f e(F)
-  di as txt "`e(title3)'" _col(51) "Prob > F"      _col(67) "= " as res %10.4f Ftail(e(df_m),e(df_r)-e(report_constant),e(F))
-  di as txt               _col(51) "R-squared"     _col(67) "= " as res %10.4f e(r2)
-  di as txt               _col(51) "Adj R-squared" _col(67) "= " as res %10.4f e(r2_a)
+  if "`header'"=="" {
+    if e(drop_singletons) di as txt `"(dropped `e(num_singletons)' {browse "http://scorreia.com/research/singletons.pdf":singleton observations})"'
+    di as txt `"({browse "http://scorreia.com/research/hdfe.pdf":MWFE estimator} converged in `e(ic)' iterations)"'
+    di
+    di as txt "`e(title)' " _col(51) "Number of obs" _col(67) "= " as res %10.0fc e(N)
+    di as txt "`e(title2)'" _col(51) "F(" as res %4.0f e(df_m) as txt "," as res %7.0f e(df_r)-e(report_constant) as txt ")" _col(67) "= " as res %10.2f e(F)
+    di as txt "`e(title3)'" _col(51) "Prob > F"      _col(67) "= " as res %10.4f Ftail(e(df_m), e(df_r)-e(report_constant), e(F))
+    di as txt               _col(51) "R-squared"     _col(67) "= " as res %10.4f e(r2)
+    di as txt               _col(51) "Adj R-squared" _col(67) "= " as res %10.4f e(r2_a)
 
-  forvalues i=1/0`e(N_clustervars)' {
-    local line`i' as txt "Number of clusters (" as res e(clustvar`i') as txt ")" _col(29) " = " as res %10.0f e(N_clust`i')
+    forvalues i=1/0`e(N_clustervars)' {
+      local line`i' as txt "Number of clusters (" as res e(clustvar`i') as txt ")" _col(29) " = " as res %10.0f e(N_clust`i')
+    }
+    di `line1' _col(51) as txt "Within R-sq." _col(67) "= " as res %10.4f e(r2_within)
+    di `line2' _col(51) as txt "Root MSE"     _col(67) "= " as res %10.4f e(rmse)
+    forvalues i=3/0`e(N_clustervars)' {
+      di `line`i''
+    }
+    di
   }
-  di `line1' _col(51) as txt "Within R-sq." _col(67) "= " as res %10.4f e(r2_within)
-  di `line2' _col(51) as txt "Root MSE"     _col(67) "= " as res %10.4f e(rmse)
-  forvalues i=3/0`e(N_clustervars)' {
-    di line`i'
-  }
-  di
-  ereturn display, level(`level') `diopts'
+
+  if "`table'"=="" ereturn display, level(`level') `diopts'
 end
 
 cap program drop ParseAbsorb
 program define ParseAbsorb, rclass
+  version 16
+
   syntax anything(equalok), [SAVEfe]
   tokenize `anything', parse(" =")
 
-  local a 1
+  return local savefe `savefe'
+
   while `"`1'"' != "" {
     if `"`2'"' == "=" {
-      local fename`a' `1'
-      confirm new var fename`a'
+      confirm new var `1'
+      local fenames = `"`fenames'"' + " `1'"
       macro shift 2
-      local namedfe 1
+      return local namedfe 1
     }
-    local ++a
+    else local fenames = `"`fenames'"' + `" "" "'
     local feterms `feterms' `1'
     macro shift
   }
   return local absorb `feterms'
+  return local fenames `fenames'
 
   return local N_hdfe: word count `feterms'
   local feterms: subinstr local feterms " " " i.", all
