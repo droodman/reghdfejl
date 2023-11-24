@@ -48,10 +48,8 @@ program define reghdfejl, eclass
 
   marksample touse
   
-  if "`gpu'"!="" {
-    local gpu = cond(c(os)=="MacOSX", "Metal", "CUDA")
-    local methodopt , method = :`gpu'
-  }
+  local gpulib = cond(c(os)=="MacOSX", "Metal", "CUDA")
+  if "`gpu'"!="" local methodopt , method = :`gpulib'
 
   if `threads' local threadsopt , nthreads = `threads'
   
@@ -64,8 +62,8 @@ program define reghdfejl, eclass
       di as err "And it requires that the Stata package {cmd:jl} be installed, via {stata ssc install jl}."
       exit 198
     }
-    jl      AddPkg `gpu' FixedEffectModels DataFrames Vcov
-    jl, qui: using `gpu',FixedEffectModels,DataFrames,Vcov
+    jl      AddPkg `gpulib' FixedEffectModels DataFrames Vcov
+    jl, qui: using `gpulib',FixedEffectModels,DataFrames,Vcov
     global reghdfejl_loaded 1
   }
 
