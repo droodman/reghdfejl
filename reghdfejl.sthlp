@@ -25,7 +25,7 @@
 {ifin} {weight} {cmd:,} {opth a:bsorb(reghdfejl##absorb:absvars)} [{help reghdfejl##options_table:options}]{p_end}
 
 {marker options_table}{...}
-{synoptset 22 tabbed}{...}
+{synoptset 27 tabbed}{...}
 {synopthdr}
 {synoptline}
 {synopt: {cmdab:a:bsorb}({it:absvars}, [{cmdab:save:fe}])}categorical variables representing the fixed effects to be absorbed{p_end}
