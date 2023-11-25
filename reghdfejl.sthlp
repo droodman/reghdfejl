@@ -25,26 +25,18 @@
 {ifin} {weight} {cmd:,} {opth a:bsorb(reghdfejl##absorb:absvars)} [{help reghdfejl##options_table:options}]{p_end}
 
 {marker options_table}{...}
-{synoptset 22 tabbed}{...}
+{synoptset 27 tabbed}{...}
 {synopthdr}
 {synoptline}
-{syntab:Standard FEs {help reghdfejl##opt_absorb:[+]}}
-{synopt: {opth a:bsorb(reghdfejl##absorb:absvars)}}categorical variables representing the fixed effects to be absorbed{p_end}
-{synopt: {cmdab:a:bsorb(}{it:...}{cmd:,} {cmdab:save:fe)}}save all fixed effect estimates with the {it:__hdfe*} prefix{p_end}
-
-{syntab:Model {help reghdfejl##opt_model:[+]}}
+{synopt: {cmdab:a:bsorb}({it:absvars}, [{cmdab:save:fe}])}categorical variables representing the fixed effects to be absorbed{p_end}
 {synopt: {opth vce:(reghdfejl##model_opts:vcetype)}}{it:vcetype} may be {opt un:adjusted} (default), {opt r:obust} or {opt cl:uster} {help fvvarlist} (allowing multi-way clustering){p_end}
 {synopt: {opth res:iduals(newvar)}}save regression residuals; required for postestimation "{it:predict <varname>, d}" {p_end}
-
-{syntab:Optimization {help reghdfejl##opt_optimization:[+]}}
 {synopt:{opt tol:erance(#)}}criterion for convergence. default is 1e-8{p_end}
 {synopt:{opt iter:ate(#)}}maximum number of iterations; default is 16,000{p_end}
 {synopt:{opt nosamp:le}}will not create {it:e(sample)}, saving some space and speed{p_end}
 {synopt:{opt threads(#)}}number of CPU threads Julia should use{p_end}
 {synopt:{opt gpu}}use NVIDIA or Apple Silicon GPU{p_end}
-
-{syntab:Reporting {help reghdfejl##opt_reporting:[+]}}
-{synopt:{opt l:evel(#)}}set confidence level; default is {cmd:level(95)}{p_end}
+{synopt:{opt l:evel(#)}}set confidence level; default is normally 95{p_end}
 {synopt:{it:display options}}{help ml##display_options:standard options} governing results display{p_end}
 {synoptline}
 {p 4 6 2}{it:depvar} and {it:indepvars} may contain {help tsvarlist:factor variables} and {help tsvarlist:time-series operators}.
@@ -57,21 +49,26 @@
 {pstd}
 {cmd:reghdfejl} is designed as a slot-in replacement for {help reghdfe}. It is missing some features of {cmd:reghdfe}. But it
 can run much faster because it relies on the Julia package {browse "https://github.com/FixedEffects/FixedEffectModels.jl":FixedEffectsModel.jl},
-{cmd:FixedEffectsModel.jl} implements the same core method as {cmd:reghdfe} (Correia 2016). It can also fit instrumental variables models
+which implements the same core methods (Correia 2016). It can also fit instrumental variables models
 with two-stage least squares. In this capacitiy it is not as full-featured as {cmd:ivreghdfe}, because it does not (yet) work as a wrapper for 
 {cmd:ivreg2}. Here too, though, it can be much faster.
 
 {pstd}
-To run, {cmd:reghdfejl} requires the Stata command {cmd:jl} be installed; {stata ssc install jl} should suffice. It also of course requires
-that {browse "https://github.com/JuliaLang/juliaup#installation":Julia be installed}, which is free. Because Julia performs just-in-time
-compilation, and because {cmd:reghdfejl} may need to install Julia packages, there can be long lags on first use. Just give
-it time. After, it can run as much as 10 times faster on hard problems.
+To run, {cmd:reghdfejl} requires the Stata command {cmd:jl} be installed; {stata ssc install jl} should suffice. It also needs
+Julia, which is free. See these {help jl##installation:installation instructions}. Because Julia performs just-in-time
+compilation, and because {cmd:reghdfejl} may need to install Julia packages, there can be long lags on first use. 
 
 {pstd}
-{cmd:reghdfejl} lacks the following {cmd:reghdfe} features:
+If {cmd:reghdfejl} appears to be failing to install the needed packages,
+you can try doing so manually: start Julia outside of Stata, hit the "]" key to enter the package manager, and type
+{cmd:add <pkgname>} for each package. The needed packages are Vcov, FixedEffectModels, DataFrames, and either Metal (for
+Macs) or CUDA (otherwise).
+
+{pstd}
+{cmd:reghdfejl} lacks some {cmd:reghdfe} features:
 
 {p 4 6 0}
-* It does not correct for collinearity the estimate of the degrees of freedom consumed by absorbed fixed effects. {cmd:reghdfe}
+* It does not correct the estimated degrees of freedom consumed by the absorbed fixed effects for collinearity of the effects. {cmd:reghdfe}
 displays these corrections in a table after the main results. {cmd:reghdfejl} does not.
 
 {p 4 6 0}
@@ -84,7 +81,7 @@ displays these corrections in a table after the main results. {cmd:reghdfejl} do
 * It does not offer options such as {cmdab:tech:nique()} that give finer control over the algorithm, for the sake of speed.
 
 {pstd}
-{cmd:reghdfejl} starts by copying the data needed for estimation into a Julia DataFrame. Duplicating the data takes time, and it takes memory. In
+{cmd:reghdfejl} starts by copying the data needed for estimation into a Julia DataFrame. Duplicating the data takes time and RAM. In
 extreme cases, it will more than double the storage demand because even variables stored in Stata in small types, such as {cmd:byte}, will be stored 
 double-precision--8 bytes per value--in Julia. If the memory demand is too great, performance will plummet. {cmd:reghdfejl} therefore is most 
 useful when the number of non-absorbed regressors is not too high and the number of absorbed terms is high, for then the computational efficiency
@@ -103,7 +100,7 @@ The other novel option, {cmd:gpu} specifies the use of NVIDIA or Apple Silicon G
 
 
 {marker absorb}{...}
-{title:Absorb() syntax}
+{title:absorb() syntax}
 
 {synoptset 22}{...}
 {synopthdr:absvar}
