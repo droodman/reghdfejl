@@ -1,18 +1,20 @@
-d 'reghdfejl': high-dimensional fixed-effect linear models using Julia
+d 'REGHDFEJL': module to estimate high-dimensional fixed-effect linear models using Julia
 d
-d reghdfejl is a slot-in replacement for reghdfe and ivreghdfe, which
-d uses a Julia back-end for speed. It requires Stata 16 or later,
-d as well as Python 3.X and Julia, which are freely available. 
+d  reghdfejl is a slot-in replacement for reghdfe and ivreghdfe,
+d which uses a Julia back-end for speed. It requires Stata 16 or
+d later, as well as Julia, which is freely available. 
 d
-d KW: high-dimensional fixed effects
-d KW: linear models
 d KW: Julia
+d KW: plugins
 d
-d Requires: Stata version 16+, Python 3.X, Julia, Python packages NumPy and 
-d JuliaCall, and Julia packages FixedEffectModels.jl, CUDA.jl, DataFrames.jl, 
-d and Vcov.jl. The program will attempt to install all packages automatically.
+d Requires: Stata version 16. julia from SSC, Julia 1.9
+d
+d Distribution-Date: 20231126
 d
 d Author: David Roodman
 d Support: email david@@davidroodman.com
 d
 f reghdfejl.ado
+f reghdfejl_p.ado
+f reghdfejl_estat.ado
+f reghdfejl.sthlp

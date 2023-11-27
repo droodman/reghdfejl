@@ -48,27 +48,32 @@
 
 {pstd}
 {cmd:reghdfejl} is designed as a slot-in replacement for {help reghdfe}. It is missing some features of {cmd:reghdfe}. But it
-can run much faster because it relies on the Julia package {browse "https://github.com/FixedEffects/FixedEffectModels.jl":FixedEffectsModel.jl},
-which implements the same core methods (Correia 2016). It can also fit instrumental variables models
+can run ~10 times faster because it relies on the Julia program {browse "https://github.com/FixedEffects/FixedEffectModels.jl":FixedEffectsModel.jl},
+which implements the same core methods (Correia 2016).
+{cmd:reghdfejl} also fits instrumental variables models
 with two-stage least squares. In this capacitiy it is not as full-featured as {cmd:ivreghdfe}, because it does not (yet) work as a wrapper for 
-{cmd:ivreg2}. Here too, though, it can be much faster.
+{cmd:ivreg2}.
 
 {pstd}
-To run, {cmd:reghdfejl} requires the Stata command {cmd:jl} be installed; {stata ssc install jl} should suffice. It also needs
-Julia, which is free. See these {help jl##installation:installation instructions}. Because Julia performs just-in-time
-compilation, and because {cmd:reghdfejl} may need to install Julia packages, there can be long lags on first use. 
+To run, {cmd:reghdfejl} requires that the Stata command {cmd:jl} be installed; "{stata ssc install julia}" should suffice. It also needs
+Julia, which is free. See these {help jl##installation:installation instructions}. On Intel Macs, it seems to require macOS 11 (Big Sur)
+or 12 (Monterey) to run reliably.
+
+{pstd}
+Because Julia performs just-in-time compilation, and because {cmd:reghdfejl} may need to install Julia packages, there can be long lags on first use. 
 
 {pstd}
 If {cmd:reghdfejl} appears to be failing to install the needed packages,
-you can try doing so manually: start Julia outside of Stata, hit the "]" key to enter the package manager, and type
+you can try intervening manually: start Julia outside of Stata, hit the "]" key to enter the package manager, and type
 {cmd:add <pkgname>} for each package. The needed packages are Vcov, FixedEffectModels, DataFrames, and either Metal (for
 Macs) or CUDA (otherwise).
 
 {pstd}
-{cmd:reghdfejl} lacks some {cmd:reghdfe} features:
+{cmd:reghdfejl} lacks some {cmd:reghdfe} features that are typically secondary for users:
 
 {p 4 6 0}
-* It does not correct the estimated degrees of freedom consumed by the absorbed fixed effects for collinearity of the effects. {cmd:reghdfe}
+* It does not correct the estimates of the degrees of freedom consumed by absorbed fixed effects for collinearity
+and redundance among fixed-effect dummies. {cmd:reghdfe}
 displays these corrections in a table after the main results. {cmd:reghdfejl} does not.
 
 {p 4 6 0}
@@ -78,25 +83,28 @@ displays these corrections in a table after the main results. {cmd:reghdfejl} do
 * It does not allow control over whether the constant term is reported. The constant is always absorbed.
 
 {p 4 6 0}
-* It does not offer options such as {cmdab:tech:nique()} that give finer control over the algorithm, for the sake of speed.
+* It does not offer options such as {cmdab:tech:nique()} that give finer control over the algorithm. But these are largely obviated
+by {cmd:reghdfejl}'s speed.
 
 {pstd}
-{cmd:reghdfejl} starts by copying the data needed for estimation into a Julia DataFrame. Duplicating the data takes time and RAM. In
+{cmd:reghdfejl} starts by copying the data needed for estimation into a Julia DataFrame. Duplicating the data takes a bit of time and potentially
+a lot of RAM. In
 extreme cases, it will more than double the storage demand because even variables stored in Stata in small types, such as {cmd:byte}, will be stored 
 double-precision--8 bytes per value--in Julia. If the memory demand is too great, performance will plummet. {cmd:reghdfejl} therefore is most 
-useful when the number of non-absorbed regressors is not too high and the number of absorbed terms is high, for then the computational efficiency
-of Julia shines.
+useful when you have plenty of RAM, when the number of non-absorbed regressors is low, and when the number of absorbed terms is high
+(for then the computational efficiency of Julia shines).
 
 {pstd}
-{cmd:reghdfejl} offers two novel options that can increase speed, though in the author's experience they usually don't matter. The {opt threads(#)}
-option can reduce the number of CPU threads Julia uses. The default number---and the maximum that {cmd:reghdfejl} can access--is set by 
-the {browse "https://docs.julialang.org/en/v1/manual/multi-threading/":system environment variable JULIA_NUM_THREADS}. The variable can be 
-an integer or it can be {cmd:auto}. On CPUs with efficiency as well as performance cores, it is sometimes faster to reduce the number of threads
-to the number of performance cores, in order to reduce dependence on the slower efficiency cores. Further reductions can also help, if the overhead
+{cmd:reghdfejl} offers two novel options that can increase speed, athough in the author's experience they don't help a lot. The {opt threads(#)}
+option can reduce the number of CPU threads Julia uses. The default number--and the maximum that {cmd:reghdfejl} can access--is set by 
+the {browse "https://docs.julialang.org/en/v1/manual/multi-threading/":system environment variable JULIA_NUM_THREADS}. To determine this value,
+type "{stata "jl: Threads.nthreads()"}" at the Stata prompt. On CPUs with efficiency 
+as well as performance cores, it is sometimes faster to reduce the number of threads
+to the number of performance cores, in order to reduce dependence on the slower efficiency cores. Further reductions also help if the overhead
 of multithreading exceeds the benefits.
 
 {pstd}
-The other novel option, {cmd:gpu} specifies the use of NVIDIA or Apple Silicon GPUs for computation. This {it:might} increase speed.
+The other novel option, {cmd:gpu} specifies the use of NVIDIA or Apple Silicon GPUs for computation. Typically this modestly increases speed.
 
 
 {marker absorb}{...}
@@ -127,11 +135,10 @@ convergence will still be {it:much} faster.{p_end}
 
 {marker options}{...}
 {title:Options}
-
 {marker opt_absorb}{...}
 
 {phang}
-{opth a:bsorb(reghdfejl##absorb:absvars)} list of categorical variables (or interactions) representing the fixed effects to be absorbed.
+{cmdab:a:bsorb}({it:absvars}, [{cmdab:save:fe}]) list of categorical variables (or interactions) representing the fixed effects to be absorbed.
 This is equivalent to including an indicator/dummy variable for each category of each {it:absvar}. {cmd:absorb()} is required.
 
 {pmore}
@@ -161,37 +168,25 @@ Example: {it:reghdfejl price weight, absorb(turn trunk, savefe)}.
 are correlated within groups. Multi-way-clustering is allowed.
 
 {phang}
-{opth res:iduals(newvar)} saves the regression residuals in a new variable. 
-
-{pmore} {opt res:iduals} (without parenthesis) saves the residuals
-in the variable {it:_reghdfe_resid} (overwriting it if it already exists).
+{cmdab:res:iduals[(}{help newvar}{cmd:})]} saves the regression residuals in a new variable. {opt res:iduals} without parenthesis saves them
+in the variable {it:_reghdfejl_resid}, overwriting it if it already exists.
 
 {pmore}
-This option does not require additional computations and is required for
-subsequent calls to {cmd:predict, d}.
-
+This option carries a small time cost but is required for subsequent calls to {cmd:predict, d}.
 
 {phang}
-{opth tol:erance(#)} specifies the tolerance criterion for convergence; default is {cmd:tolerance(1e-8)}.
-In general, high tolerances (1e-8 to 1e-14) return more accurate results, but more slowly.
-
-{pmore}
-Warning: when absorbing heterogeneous slopes without the accompanying heterogeneous intercepts,
-convergence is quite poor and a higher tolerance is strongly suggested (i.e. higher than the default).
-In other words, an absvar of {it:var1##c.var2} converges easily, but an absvar of {it:var1#c.var2} will converge slowly and may require a higher tolerance.
+{opth tol:erance(#)} specifies the tolerance criterion for convergence. The default is 1e-8.
+In general, low tolerances (1e-8 to 1e-14) return more accurate results, more slowly.
 
 {phang}
 {opth it:erations(#)}
-specifies the maximum number of iterations; the default is {cmd:iterations(16000)}.
+specifies the maximum number of iterations; the default is 16,000.
 
 {phang}
 {opt nosample} will not create {it:e(sample)}, saving some space and speed.
 
-{marker opt_reporting}{...}
-
 {phang}
-{opt l:evel(#)} sets confidence level; default is {cmd:level(95)}; see {helpb estimation options##level():[R] Estimation options}
-
+{opt l:evel(#)} sets the confidence level for reported confidence intervals. The default is controlled by {help set level} and is usually 95.
 
 {phang}
 {opt nohead:er} suppresses the display of the table of summary
@@ -206,10 +201,8 @@ This option is often used in programs and ado-files.
 redundant categories (collinear or otherwise not counted when computing degrees-of-freedom), and the difference between both.
 
 
-
 {marker postestimation}{...}
 {title:Postestimation syntax}
-
 
 {pstd}
 Only {cmd:estat summarize}, {cmd:predict}, and {cmd:test} are currently supported.
@@ -245,26 +238,17 @@ The syntax of {it: estat summarize} and {it:predict} is:
 {p 4 6 2}although {cmd:predict} {help data_types:type} {help newvar} is allowed,
 the resulting variable will always be of type {it:double}.{p_end}
 
+
 {marker examples}{...}
 {title:Examples}
 
-{hline}
-{pstd}Setup{p_end}
-{phang2}{cmd:. sysuse auto}{p_end}
+{phang}. {stata sysuse auto}{p_end}
+{phang}. {stata reghdfejl price weight length, absorb(rep78)}{p_end}
+{phang}. {stata reghdfejl price weight length, absorb(rep78) vce(cluster rep78)}{p_end}
 
-{pstd}Simple case - one fixed effect{p_end}
-{phang2}{cmd:. reghdfejl price weight length, absorb(rep78)}{p_end}
-{hline}
-
-{pstd}As above, but also compute clustered standard errors{p_end}
-{phang2}{cmd:. reghdfejl price weight length, absorb(rep78) vce(cluster rep78)}{p_end}
-{hline}
-
-{pstd}Two and three sets of fixed effects{p_end}
-{phang2}{cmd:. webuse nlswork}{p_end}
-{phang2}{cmd:. reghdfejl ln_w grade age ttl_exp tenure not_smsa south , absorb(idcode year)}{p_end}
-{phang2}{cmd:. reghdfejl ln_w grade age ttl_exp tenure not_smsa south , absorb(idcode year occ)}{p_end}
-{hline}
+{phang}. {stata webuse nlswork}{p_end}
+{phang}. {stata reghdfejl ln_wage grade age ttl_exp tenure not_smsa south , absorb(idcode year)}{p_end}
+{phang}. {stata reghdfejl ln_wage grade age ttl_exp tenure not_smsa south , absorb(idcode year occ_code)}{p_end}
 
 
 {marker results}{...}
@@ -337,6 +321,96 @@ the resulting variable will always be of type {it:double}.{p_end}
 {p2colreset}{...}
 
 
+{title:Benchmark}
+
+{pstd}
+This benchmark creates a data set with 100 million observations and runs regressions with 1 or 2 sets of fixed 
+effects using {help areg}, {help reghdfe}, and {cmd:reghdfejl} in Stata/MP. The number of processors is set to 1 or 8. THe script is run on a Windows 
+laptop with an NVIDIA RTX 4070 GPU and an Intel i9-13900H, the latter having 6 performance and 8 (slower) efficiency cores. The log is lightly edited for parsimony.
+
+{pstd}With 1 set of FE, {cmd:reghdfe} is 2-7 times faster than {cmd:areg}, and {cmd:reghdfejl} is 3-4 faster again, slightly more so with the {cmd:gpu} 
+option. With 2 sets of FE, {cmd:reghdfejl} is 10 times faster than {cmd:reghdfe} without {cmd:gpu} and 12 times faster with.
+
+{pstd}
+On a Mac with an M2 Pro chip--with 8 performance cores and 4 efficiency cores--the absolute times are somewhat higher and the ratios slightly lower (not shown).
+
+{pstd}{hilite:Script}{p_end}
+{phang}scalar N = 100000000{p_end}
+{phang}scalar K = 100{p_end}
+{phang}set obs `=N'{p_end}
+{phang}gen id1 = runiformint(1, N/K){p_end}
+{phang}gen id2 = runiformint(1,   K){p_end}
+
+{phang}drawnorm x1 x2{p_end}
+{phang}gen double y = 3 * x1 + 2 * x2 + sin(id1) + cos(id2) + runiform(){p_end}
+
+{phang}set rmsg on{p_end}
+
+{phang}set processors 1{p_end}
+{phang}qui areg      y x1 x2, a(id1) cluster(id1){p_end}
+{phang}qui reghdfe   y x1 x2, a(id1) cluster(id1){p_end}
+{phang}qui reghdfejl y x1 x2, a(id1) cluster(id1){p_end}
+{phang}qui reghdfejl y x1 x2, a(id1) cluster(id1) gpu{p_end}
+{phang}qui reghdfe   y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
+{phang}qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
+{phang}qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2) gpu{p_end}
+
+{phang}set processors 8  // requires Stata/MP{p_end}
+{phang}qui areg      y x1 x2, a(id1) cluster(id1){p_end}
+{phang}qui reghdfe   y x1 x2, a(id1) cluster(id1){p_end}
+{phang}qui reghdfejl y x1 x2, a(id1) cluster(id1){p_end}
+{phang}qui reghdfejl y x1 x2, a(id1) cluster(id1) gpu{p_end}
+{phang}qui reghdfe   y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
+{phang}qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
+{phang}qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2) gpu{p_end}
+
+{pstd}{hilite:Log}{p_end}
+{phang}. set processors 1{p_end}
+
+{phang}. qui areg      y x1 x2, a(id1) cluster(id1){p_end}
+{phang}t=490.93{p_end}
+
+{phang}. qui reghdfe   y x1 x2, a(id1) cluster(id1){p_end}
+{phang}t=68.74{p_end}
+
+{phang}. qui reghdfejl y x1 x2, a(id1) cluster(id1){p_end}
+{phang}t=16.86{p_end}
+
+{phang}. qui reghdfejl y x1 x2, a(id1) cluster(id1) gpu{p_end}
+{phang}t=15.92{p_end}
+
+{phang}. qui reghdfe   y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
+{phang}t=315.05{p_end}
+
+{phang}. qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
+{phang}t=29.70{p_end}
+
+{phang}. qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2) gpu{p_end}
+{phang}t=24.48{p_end}
+
+{phang}. set processors 8{p_end}
+
+{phang}. qui areg      y x1 x2, a(id1) cluster(id1){p_end}
+{phang}t=99.43 {p_end}
+
+{phang}. qui reghdfe   y x1 x2, a(id1) cluster(id1){p_end}
+{phang}t=44.15{p_end}
+
+{phang}. qui reghdfejl y x1 x2, a(id1) cluster(id1){p_end}
+{phang}t=13.38{p_end}
+
+{phang}. qui reghdfejl y x1 x2, a(id1) cluster(id1) gpu{p_end}
+{phang}t=12.20{p_end}
+
+{phang}. qui reghdfe   y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
+{phang}t=238.35{p_end}
+
+{phang}. qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
+{phang}t=24.80{p_end}
+
+{phang}. qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2) gpu{p_end}
+{phang}t=20.100{p_end}
+
 {title:Author}
 
 {pstd}David Roodman{break}
@@ -348,10 +422,11 @@ Email: {browse "mailto:david@davidroodman.com":david@davidroodman.com}
 {title:Acknowledgements}
 
 {pstd}
-More than with most packages, the author of this stands on the shoulders of giants. {cmd:reghdfejl} is merely a wrapper
+More so than for most packages, in writing this one, the author stands on the shoulders of giants. {cmd:reghdfejl} is merely a wrapper
 for {browse "https://www.matthieugomez.com/":Matthieu Gomez}'s {browse "https://github.com/FixedEffects/FixedEffectModels.jl":FixedEfectModels.jl},
-which is itself a Julia implementation of {browse "http://scorreia.com/":Sergio Correia}'s path-breaking {help reghdfe}. The
-Julia programming language is a free, open-source project.
+which is itself a Julia implementation of {browse "http://scorreia.com/":Sergio Correia}'s path-breaking {help reghdfe}. {cmd:reghdfejl}'s code for
+postestimation functionality is copied from {cmd:reghdfe}, as are parts of this help file. The Julia programming language is a free, open-source project
+with many contributors.
 
 {pstd}
 
