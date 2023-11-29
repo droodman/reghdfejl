@@ -389,4 +389,4 @@ end
 
 
 * Version history
-* 0.2.0 Added support for absorbing string vars and clustering on interactions
+* 0.3.0 Added support for absorbing string vars and clustering on interactions
