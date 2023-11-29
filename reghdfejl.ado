@@ -1,4 +1,4 @@
-*! reghdfejl 0.2.1 24 November 2023
+*! reghdfejl 0.3.0 24 November 2023
 
 // The MIT License (MIT)
 //
@@ -44,7 +44,7 @@ program define reghdfejl, eclass
   _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
   _assert `tolerance'>0, msg("{cmdab:tol:erance()} must be positive.") rc(198)
   
-  _get_diopts diopts options, `options'
+  _get_diopts diopts _options, `options'
 
   marksample touse
   
@@ -67,22 +67,16 @@ program define reghdfejl, eclass
     global reghdfejl_loaded 1
   }
 
-  local wtvar `exp'
-  if "`weight'"=="pweight" & `"`robust'`cluster'`vce'"'=="" local robust robust  // pweights implies robust
-
-  if `"`absorb'"' != "" {
-    ParseAbsorb `absorb'
-    local N_hdfe `r(N_hdfe)'
-    local absorb `r(absorb)'
-    local absorbvars `r(absorbvars)'
-    local feterms `r(feterms)'
-    local fenames `r(fenames)'
-    local savefe `r(savefe)'
-    local namedfe `r(namedfe)'
-
-    markout `touse' `absorbvars'
+  if `"`exp'"' != "" {
+    cap confirm var `exp'
+    if _rc {
+      tempname wtvar
+      gen double `wtvar' = `exp' if `touse'
+    }
+    else local wtvar `exp'
+    local wtopt , weights = :`wtvar'
+    local haspw = "`weight'"=="pweight"
   }
-  else if !0`hascons' local feterms + 0
 
   tokenize `anything'
   local depname `1'
@@ -91,36 +85,46 @@ program define reghdfejl, eclass
   local hasiv = strpos(`"`*'"', "=")
   if `hasiv' {
     local t = regexm(`"`*'"', "^([^\(]*)\(([^=]*)=([^\)]*)\)(.*)$")  // standard IV syntax
-    fvexpand `=regexs(1)' `=regexs(4)'
-    local inexogname `r(varlist)'
-    fvexpand `= regexs(2)'
-    local instdname `r(varlist)'
-    fvexpand `=regexs(3)'
-    local instsname `r(varlist)'
+    local inexogname `=regexs(1)' `=regexs(4)'
+    local instdname = regexs(2)
+    local instsname = regexs(3)
   }
-  else {
-    fvexpand `*'
-    local inexogname `r(varlist)'
-  }
+  else local inexogname `*'
 
-  local varlist `depname' `instdname' `inexogname' `instsname'
-  markout `touse' `varlist'
+  markout `touse' `depname' `instdname' `inexogname' `instsname'
 
-  if `"`cluster'"' != "" local vce cluster `cluster'  // move clustering vars in cluster() to vce() because _vce_parse can only handle >1 var in latter
-  _vce_parse, optlist(Robust UNadjusted ols) argoptlist(CLuster) pwallowed(robust) old: `wgtexp', `robust' vce(`vce')
-	local vce `r(vceopt)'
-	local robust `r(robust)'
-	local cluster `r(cluster)'
-	if "`cluster'"!="" markout `touse' `cluster', strok
-
-  if "`cluster'"=="" {
-    if "`robust'"!="" {
-      local vcovopt , Vcov.robust()
+  if `"`vce'"' != "" {
+    _assert `"`cluster'"'=="", msg("only one of cluster() and vce() can be specified") rc(198)
+    _assert `"`robust'"' =="", msg("only one of robust and vce() can be specified"   ) rc(198)
+    tokenize `'`vce'"'
+    local 0, `1'
+    syntax, [Robust CLuster UNadjusted ols]
+    _assert "`robust'`cluster'`unadjusted'`ols'"!="", msg("vcetype '`0'' not allowed") rc(198)
+    if "`cluster'"!="" {
+      macro shift
+      local cluster `*'
     }
   }
+
+  if `"`cluster'"'=="" {
+    if "`robust'"!="" local vcovopt , Vcov.robust()
+  }
   else {
-    mata st_local("vcovopt", invtokens(":":+tokens("`cluster'"),","))
-    local vcovopt , Vcov.cluster(`vcovopt')
+    tokenize `"`cluster'"', parse(" #")
+    local cluster `*'  // enforce uniform use of spaces
+    local cluster: subinstr local cluster " # # " "#", all
+    local cluster: subinstr local cluster " # " "#", all
+    foreach term in `cluster' {
+      if strpos(`"`term'"', "#") {  // allow clustering on interactions
+        local term: subinstr local term "#" " ", all
+        tempvar t
+        egen long `t' = group(`term')
+        local _cluster `_cluster' `t'
+      }
+      else local _cluster `_cluster' `term'
+    }
+    markout `touse' `_cluster', strok
+    mata st_local("vcovopt", " , Vcov.cluster(" + invtokens(":":+tokens("`_cluster'"),",") + ")")
   }
 
   foreach varset in dep inexog instd insts {
@@ -133,16 +137,58 @@ program define reghdfejl, eclass
   }
   _assert `kdep'==1, msg("Multiple dependent variables specified.") rc(198) 
 
-  if `"`wtvar'"' != "" {
-    cap confirm var `wtvar'
-    if _rc {
-      tempname wtvar
-      gen double `wtvar' = `exp' if `touse'
-    }
-    local wtopt , weights = :`wtvar'
-  }
+  if `"`absorb'"' != "" {
+    local 0 `absorb'
+    syntax anything(equalok), [SAVEfe]
+    tokenize `anything', parse(" =")
 
-  local vars `dep' `inexog' `instd' `insts' `cluster' `wtvar' `absorbvars'
+    while `"`1'"' != "" {
+      if `"`2'"' == "=" {
+        confirm new var `1'
+        local fenames = `"`fenames'"' + " `1'"
+        macro shift 2
+        local namedfe 1
+      }
+      else local fenames = `"`fenames'"' + `" "" "'
+      local feterms `feterms' `1'
+      macro shift
+    }
+    local absorb `feterms'
+    local N_hdfe: word count `feterms'
+
+    local feterms i.`: subinstr local feterms " " " i.", all'
+
+    local absorbvars `feterms'
+    local feterms: subinstr local feterms "##c." ")*(", all
+    local feterms: subinstr local feterms "#c." ")&(", all
+    local feterms: subinstr local feterms "##i." ")&fe(", all
+    local feterms: subinstr local feterms "#i." ")&fe(", all
+    local feterms: subinstr local feterms "i." "fe(", all
+    local feterms: subinstr local feterms " " ") + ", all
+    local feterms: subinstr local feterms ")" " )", all
+    local feterms: subinstr local feterms "(" "( ", all
+    local feterms + `feterms' )
+
+    local absorbvars: subinstr local absorbvars "i." " ", all
+    local absorbvars: subinstr local absorbvars "c." " ", all
+    local absorbvars: subinstr local absorbvars "#" " ", all
+
+    local absorbvars `absorbvars'
+    foreach var in `absorbvars' {
+      cap confirm numeric var `var'
+      if _rc {
+        tempvar t
+        egen long `t' = group(`var') if `touse'
+        local absorbvars: subinstr local absorbvars "`var'" "`t'", word all
+        local feterms   : subinstr local feterms    "`var'" "`t'", word all
+      }
+    }
+    
+    markout `touse' `absorbvars'
+  }
+  else if !0`hascons' local feterms + 0
+
+  local vars `dep' `inexog' `instd' `insts' `_cluster' `wtvar' `absorbvars'
   local vars: list uniq vars
 
   if "`residuals'" != "" {
@@ -150,11 +196,12 @@ program define reghdfejl, eclass
     local residuals _reghdfejl_resid
   }
   else {
-    local 0, `options'
+    local 0, `_options'
     syntax, [RESIDuals(name) *]
+    local _options `options'
   }
 
-  if `"`options'"' != "" di as inp `"`options'"' as txt " ignored" _n
+  if `"`_options'"' != "" di as inp `"`_options'"' as txt " ignored" _n
 
   local saveopt = cond("`residuals'`savefe'`namedfe'"=="", "", ", save = :" + cond("`residuals'"=="", "fe", cond("`savefe'`namedfe'"=="", "residuals", "all")))
 
@@ -340,47 +387,6 @@ program define Display
   if "`table'"=="" ereturn display, level(`level') `diopts'
 end
 
-cap program drop ParseAbsorb
-program define ParseAbsorb, rclass
-  version 16
 
-  syntax anything(equalok), [SAVEfe]
-  tokenize `anything', parse(" =")
-
-  return local savefe `savefe'
-
-  while `"`1'"' != "" {
-    if `"`2'"' == "=" {
-      confirm new var `1'
-      local fenames = `"`fenames'"' + " `1'"
-      macro shift 2
-      return local namedfe 1
-    }
-    else local fenames = `"`fenames'"' + `" "" "'
-    local feterms `feterms' `1'
-    macro shift
-  }
-  return local absorb `feterms'
-  return local fenames `fenames'
-
-  return local N_hdfe: word count `feterms'
-  local feterms: subinstr local feterms " " " i.", all
-  fvunab _feterms: i.`feterms'
-  local feterms
-  foreach exp in `_feterms' {  // drop un-prefixed continuous terms from ## expansion
-    if substr("`exp'",1,2)=="i." local feterms `feterms' `exp'
-  }
-
-  local absorbvars `feterms'
-  local feterms: subinstr local feterms "##c." ")*(", all
-  local feterms: subinstr local feterms "#c." ")&(", all
-  local feterms: subinstr local feterms "##i." ")&fe(", all
-  local feterms: subinstr local feterms "#i." ")&fe(", all
-  local feterms: subinstr local feterms "i." "fe(", all
-  local feterms: subinstr local feterms " " ") + ", all
-  return local feterms + `feterms')
-
-  local absorbvars: subinstr local absorbvars "i." " ", all
-  local absorbvars: subinstr local absorbvars "c." " ", all
-  return local absorbvars: subinstr local absorbvars "#" " ", all
-end
+* Version history
+* 0.2.0 Added support for absorbing string vars and clustering on interactions

@@ -95,13 +95,10 @@ useful when you have plenty of RAM, when the number of non-absorbed regressors i
 (for then the computational efficiency of Julia shines).
 
 {pstd}
-{cmd:reghdfejl} offers two novel options that can increase speed, athough in the author's experience they don't help a lot. The {opt threads(#)}
+{cmd:reghdfejl} offers two novel options that can increase speed. The {opt threads(#)}
 option can reduce the number of CPU threads Julia uses. The default number--and the maximum that {cmd:reghdfejl} can access--is set by 
-the {browse "https://docs.julialang.org/en/v1/manual/multi-threading/":system environment variable JULIA_NUM_THREADS}. To determine this value,
-type "{stata "jl: Threads.nthreads()"}" at the Stata prompt. On CPUs with efficiency 
-as well as performance cores, it is sometimes faster to reduce the number of threads
-to the number of performance cores, in order to reduce dependence on the slower efficiency cores. Further reductions also help if the overhead
-of multithreading exceeds the benefits.
+the {browse "https://docs.julialang.org/en/v1/manual/multi-threading/":system environment variable JULIA_NUM_THREADS}. See 
+{help jl##threads:help jl} for more on determining and controlling the number of threads.
 
 {pstd}
 The other novel option, {cmd:gpu} specifies the use of NVIDIA or Apple Silicon GPUs for computation. Typically this modestly increases speed.
