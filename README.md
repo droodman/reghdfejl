@@ -37,6 +37,6 @@ reghdfejl ln_wage grade age ttl_exp tenure (not_smsa = south), absorb(idcode yea
 ```
 
 ## Development plans
-* Expand non-absorbed factor variables in Julia rather than Stata, to reduce data transfer between the two.
+* Expand non-absorbed factor variables in Julia rather than Stata, to reduce data transfer.
 * Possibly make it a wrapper for `ivreg2` like `ivreghdfe`.
 
