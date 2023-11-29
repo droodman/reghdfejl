@@ -9,7 +9,11 @@ This package bridges between Stata and the Julia package [FixedEffectModels.jl](
 * Julia 1.9.4 or later, with its location added to the system path per the [instructions](https://julialang.org/downloads).
 
 ## Installation
-When more mature, this package will be posted on SSC. For now, install it from Stata with
+Install from SSC with
+```
+ssc install reghdfejl
+```
+Sometimes SSC will lag a bit behind this repository. To get the latest version from here, do:
 ```
 net install reghdfejl, replace from(https://raw.github.com/droodman/reghdfejl/v[X.Y.Z])
 ```
