@@ -6,10 +6,14 @@ This package bridges between Stata and the Julia package [FixedEffectModels.jl](
 ## Requirements
 * Stata 16 or later.
 * The Stata package [julia.ado](https://github.com/droodman/julia.ado).
-* Julia 1.9.4 or later, with its location added to the system path per the [instructions](https://julialang.org/downloads).
+* Julia 1.9.4 or later, installed following the instructions obtained via `help jl` in Stata.
 
 ## Installation
-When more mature, this package will be posted on SSC. For now, install it from Stata with
+Install from SSC with
+```
+ssc install reghdfejl
+```
+Sometimes SSC will lag a bit behind this repository. To get the latest version from here, do:
 ```
 net install reghdfejl, replace from(https://raw.github.com/droodman/reghdfejl/v[X.Y.Z])
 ```
@@ -22,20 +26,17 @@ Because Julia uses just-in-time compilation, the first time you run `reghdfejl` 
 `reghdfejl` ignores reghdfe options that affect the best-fit search algorithm, as well as the rarely-used dofadjustments() option. It accepts three novel options:
 * `threads()` specifies the number of CPU threads FixedEffectModels.jl should use, for speed. The default is 4.
 * `gpu` specifies that an [NVIDIA GPU be used for computation](https://github.com/FixedEffects/FixedEffectModels.jl#nvidia-gpu).
-* `precision()` sets the precision of GPU computation. 64 (double precision) is the default. 32 is also accepted, potentially reducing precision but saving time.
 
 ## Examples
 ```
 webuse nlswork
 reghdfejl ln_wage grade age ttl_exp tenure not_smsa south, absorb(idcode year)
 reghdfejl ln_wage grade age ttl_exp tenure not_smsa south, absorb(idcode year) vce(robust)
-reghdfejl ln_wage grade age ttl_exp tenure not_smsa south, absorb(idcode year) vce(cluster idcode) threads(8)
+reghdfejl ln_wage grade age ttl_exp tenure not_smsa south, absorb(idcode year) vce(cluster idcode) threads(4)
 reghdfejl ln_wage grade age ttl_exp tenure (not_smsa = south), absorb(idcode year) vce(cluster idcode year)
 ```
 
 ## Development plans
-* Add suport for `estat summarize` post-estimation.
-* Expand non-absorbed factor variables in Julia rather than Stata, to reduce data transfer between the two.
+* Expand non-absorbed factor variables in Julia rather than Stata, to reduce data transfer.
 * Possibly make it a wrapper for `ivreg2` like `ivreghdfe`.
-* Add help file.
-* Post to SSC.
+
