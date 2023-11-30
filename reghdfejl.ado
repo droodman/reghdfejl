@@ -1,4 +1,4 @@
-*! reghdfejl 0.3.0 24 November 2023
+*! reghdfejl 0.3.1 30 November 2023
 
 // The MIT License (MIT)
 //
@@ -38,7 +38,7 @@ program define reghdfejl, eclass
 
   local cmdline `0'
 	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
-                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE *]
+                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact *]
   local sample = "`sample'"==""
 
   _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
@@ -58,8 +58,8 @@ program define reghdfejl, eclass
   if `"$reghdfejl_loaded"'=="" {
     cap jl: nothing
     if _rc {
-      di as err `"Can't access Julia. {cmd:reghdfejl} requires that {browse "https://github.com/JuliaLang/juliaup#installation":Julia be installed}."'
-      di as err "And it requires that the Stata package {cmd:jl} be installed, via {stata ssc install jl}."
+      di as err `"Can't access Julia. {cmd:reghdfejl} requires that the {cmd:jl} command be installed, via {stata ssc install julia}."
+      di as err "And it requires that Julia be installed, following the instruction under Installation in {help jl##installation:help jl}."
       exit 198
     }
     jl      AddPkg `gpulib' FixedEffectModels DataFrames Vcov
@@ -205,7 +205,16 @@ program define reghdfejl, eclass
 
   local saveopt = cond("`residuals'`savefe'`namedfe'"=="", "", ", save = :" + cond("`residuals'"=="", "fe", cond("`savefe'`namedfe'"=="", "residuals", "all")))
 
+  if "`compact'"!="" {
+    tempfile compactfile
+    save "`compactfile'"
+    keep `vars' `touse'
+    keep if `touse'
+  }
+
   jl PutVarsToDFNoMissing `vars' if `touse'  // put all vars in Julia DataFrame named df
+
+  if "`compact'" !="" drop _all
 
   mata: st_local("inexog", invtokens(tokens("`inexog'"), "+"))  // put +'s in var lists
   if `hasiv' {
@@ -216,6 +225,16 @@ program define reghdfejl, eclass
 
   * Estimate!
   jl, qui: m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance', maxiter=`iterations')
+
+  jl, qui: sizedf = size(df)
+  if "`wtvar'"!="" jl, qui: sumweights = mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0)
+
+  jl, qui: df = nothing  // yield memory
+
+  if "`compact'"!="" {
+    jl, qui: GC.gc()
+    use `compactfile'
+  }
 
   if "`savefe'`namedfe'" != "" {
     jl, qui: FEs = fe(m); SF_macro_save("reghdfejl_FEnames", join(names(FEs), " "))
@@ -267,7 +286,7 @@ program define reghdfejl, eclass
   ereturn post `b' `V', depname(`depname') obs(`=`t'') buildfvinfo findomitted `=cond(`sample', "esample(`touse')", "")'
 
   ereturn scalar N_hdfe = 0`N_hdfe'
-  jl, qui: SF_scal_save("`t'", size(df,1))
+  jl, qui: SF_scal_save("`t'", sizedf[1])
   ereturn scalar N_full = `t'
   mata st_numscalar("e(rank)", rank(st_matrix("e(V)")))
   ereturn scalar df_m = e(rank)
@@ -289,7 +308,7 @@ program define reghdfejl, eclass
   ereturn scalar ic = `t'
   jl, qui: SF_scal_save("`t'", m.converged)
   ereturn scalar converged = `t'
-  jl, qui: SF_scal_save("`t'", size(df,1) - nobs(m))
+  jl, qui: SF_scal_save("`t'", sizedf[1] - nobs(m))
   ereturn scalar num_singletons = `t'
   ereturn scalar rmse = sqrt(e(rss) / (e(N) - e(df_a) - e(rank)))
   ereturn scalar ll  = -e(N)/2*(1 + log(2*_pi / e(N) *  e(rss)          ))
@@ -302,7 +321,7 @@ program define reghdfejl, eclass
 
   if "`wtvar'"=="" ereturn scalar sumweights = e(N)
   else {
-    jl, qui: SF_scal_save("`t'", mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0))
+    jl, qui: SF_scal_save("`t'", sumweights)
     ereturn scalar sumweights = `t'
   }
 
@@ -352,8 +371,6 @@ program define reghdfejl, eclass
   ereturn local cmdline `cmdline'
   ereturn local cmd reghdfejl
 
-  jl, qui: df = nothing  // yield memory
-
   Display, `diopts' level(`level') `noheader' `notable'
 end
 
@@ -390,3 +407,4 @@ end
 
 * Version history
 * 0.3.0 Added support for absorbing string vars and clustering on interactions
+* 0.3.1 Added compact option

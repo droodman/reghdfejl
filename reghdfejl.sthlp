@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.2.1 23nov2023}{...}
+{* *! version 0.3.1 30nov2023}{...}
 
 {title:Title}
 
@@ -34,6 +34,7 @@
 {synopt:{opt tol:erance(#)}}criterion for convergence. default is 1e-8{p_end}
 {synopt:{opt iter:ate(#)}}maximum number of iterations; default is 16,000{p_end}
 {synopt:{opt nosamp:le}}will not create {it:e(sample)}, saving some space and speed{p_end}
+{synopt:{opt compact}}temporarily saves all data to disk in order to free memory{p_end}
 {synopt:{opt threads(#)}}number of CPU threads Julia should use{p_end}
 {synopt:{opt gpu}}use NVIDIA or Apple Silicon GPU{p_end}
 {synopt:{opt l:evel(#)}}set confidence level; default is normally 95{p_end}
@@ -181,6 +182,9 @@ specifies the maximum number of iterations; the default is 16,000.
 
 {phang}
 {opt nosample} will not create {it:e(sample)}, saving some space and speed.
+
+{phang}
+{opt compact} temporarily saves all data to disk in orer to free memory for estimation--at the cost of a bit of time.
 
 {phang}
 {opt l:evel(#)} sets the confidence level for reported confidence intervals. The default is controlled by {help set level} and is usually 95.
