@@ -96,7 +96,7 @@ program define reghdfejl, eclass
   if `"`vce'"' != "" {
     _assert `"`cluster'"'=="", msg("only one of cluster() and vce() can be specified") rc(198)
     _assert `"`robust'"' =="", msg("only one of robust and vce() can be specified"   ) rc(198)
-    tokenize `'`vce'"'
+    tokenize `"`vce'"'
     local 0, `1'
     syntax, [Robust CLuster UNadjusted ols]
     _assert "`robust'`cluster'`unadjusted'`ols'"!="", msg("vcetype '`0'' not allowed") rc(198)
@@ -209,7 +209,7 @@ program define reghdfejl, eclass
     tempfile compactfile
     save "`compactfile'"
     keep `vars' `touse'
-    keep if `touse'
+    qui keep if `touse'
   }
 
   jl PutVarsToDFNoMissing `vars' if `touse'  // put all vars in Julia DataFrame named df
@@ -230,7 +230,6 @@ program define reghdfejl, eclass
   if "`wtvar'"!="" jl, qui: sumweights = mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0)
 
   jl, qui: df = nothing  // yield memory
-
   if "`compact'"!="" {
     jl, qui: GC.gc()
     use `compactfile'
@@ -259,6 +258,7 @@ program define reghdfejl, eclass
   tempname t
 
   jl, qui: SF_scal_save("`t'", nobs(m))
+
   if `sample' {
     jl, qui: esample = Vector{Float64}(m.esample)
     jl GetVarsFromMat `touse' if `touse', source(esample) replace
