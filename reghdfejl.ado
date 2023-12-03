@@ -1,4 +1,4 @@
-*! reghdfejl 0.3.1 30 November 2023
+*! reghdfejl 0.3.2 2 December 2023
 
 // The MIT License (MIT)
 //
@@ -417,3 +417,4 @@ end
 * Version history
 * 0.3.0 Added support for absorbing string vars and clustering on interactions
 * 0.3.1 Added compact option
+* 0.3.2 Much better handling of interactions. Switched to BLISBLAS.jl.
