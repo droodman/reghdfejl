@@ -1,4 +1,4 @@
-*! reghdfejl 0.3.2 2 December 2023
+*! reghdfejl 0.3.3 3 December 2023
 
 // The MIT License (MIT)
 //
@@ -53,8 +53,6 @@ program define reghdfejl, eclass
 
   if `threads' local threadsopt , nthreads = `threads'
   
-  local hascons = `"`constant'`absorb'"'==""
-
   if `"$reghdfejl_loaded"'=="" {
     cap jl: nothing
     if _rc {
@@ -167,10 +165,10 @@ program define reghdfejl, eclass
     local absorbvars `feterms'
     local feterms: subinstr local feterms "##c." ")*(", all
     local feterms: subinstr local feterms "#c." ")&(", all
-    local feterms: subinstr local feterms "##i." ")&fe(", all
+    local feterms: subinstr local feterms "##i." ")*fe(", all
     local feterms: subinstr local feterms "##" "#", all
     local feterms: subinstr local feterms "#" "#i.", all
-    local feterms: subinstr local feterms "#i.i." "#i.", all
+    local feterms: subinstr local feterms "i.i." "i.", all
     local feterms: subinstr local feterms "#i." ")&fe(", all
     local feterms: subinstr local feterms "i." "fe(", all
     local feterms: subinstr local feterms " " ") + ", all
@@ -195,7 +193,7 @@ program define reghdfejl, eclass
     
     markout `touse' `absorbvars'
   }
-  else if !0`hascons' local feterms + 0
+  else if "`constant'"!="" local feterms + 0
 
   local vars `dep' `inexog' `instd' `insts' `_cluster' `wtvar' `absorbvars'
   local vars: list uniq vars
@@ -238,7 +236,7 @@ program define reghdfejl, eclass
   jl, qui: sizedf = size(df)
   if "`wtvar'"!="" jl, qui: sumweights = mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0)
 
-//   jl, qui: df = nothing  // yield memory
+  jl, qui: df = nothing  // yield memory
   if "`compact'"!="" {
     jl, qui: GC.gc()
     use `compactfile'
@@ -274,8 +272,11 @@ program define reghdfejl, eclass
     jl, qui: esample = nothing
   }
 
-  if "`inexog'`ivarg'" != "" {  // if there are coefficient estimates...
-    tempname b V
+  tempname b V
+  jl, qui: SF_scal_save("`b'", length(coef(m)))
+  if `b' {
+    jl, qui: SF_scal_save("`b'", coefnames(m)[1]=="(Intercept)")
+    local hascons = `b'
 
     jl, qui: I = [1+`kinexog'+`hascons':`kinexog'+`hascons'+`kinstd' ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']  // cons-exog-endog -> endog-exog-cons
     jl, qui: `b' = collect(coef(m)[I]')
@@ -288,10 +289,12 @@ program define reghdfejl, eclass
     mat colnames `V' = `coefnames'
     mat rownames `V' = `coefnames'
    
-    forvalues i=1/`=`kinexog'+`kinstd'' {
+    forvalues i=1/`:word count `coefnames'' {
       if `V'[`i',`i']==0 di as txt "note: `:word `i' of `coefnames'' omitted because of collinearity"
     }
   }
+  else local hascons = 0
+
   ereturn post `b' `V', depname(`depname') obs(`=`t'') buildfvinfo findomitted `=cond(`sample', "esample(`touse')", "")'
 
   ereturn scalar N_hdfe = 0`N_hdfe'
@@ -418,3 +421,4 @@ end
 * 0.3.0 Added support for absorbing string vars and clustering on interactions
 * 0.3.1 Added compact option
 * 0.3.2 Much better handling of interactions. Switched to BLISBLAS.jl.
+* 0.3.3 Fixed bugs in handling of interactions and constant term
