@@ -57,7 +57,7 @@ with two-stage least squares. In this capacitiy it is not as full-featured as {c
 
 {pstd}
 To run, {cmd:reghdfejl} requires that the Stata command {cmd:jl} be installed; "{stata ssc install julia}" should suffice. It also needs
-Julia, which is free. See these {help jl##installation:installation instructions}. On Intel Macs, it seems to require macOS 11 (Big Sur)
+Julia 1.9 or later, which is free. See these {help jl##installation:installation instructions}. On Intel Macs, it seems to require macOS 11 (Big Sur)
 or 12 (Monterey) to run reliably.
 
 {pstd}

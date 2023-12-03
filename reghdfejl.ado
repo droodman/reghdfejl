@@ -62,8 +62,8 @@ program define reghdfejl, eclass
       di as err "And it requires that Julia be installed, following the instruction under Installation in {help jl##installation:help jl}."
       exit 198
     }
-    jl      AddPkg `gpulib' FixedEffectModels DataFrames Vcov
-    jl, qui: using `gpulib',FixedEffectModels,DataFrames,Vcov
+    jl      AddPkg BLISBLAS  `gpulib' FixedEffectModels DataFrames Vcov
+    jl, qui: using BLISBLAS, `gpulib',FixedEffectModels,DataFrames,Vcov
     global reghdfejl_loaded 1
   }
 
@@ -128,7 +128,13 @@ program define reghdfejl, eclass
   }
 
   foreach varset in dep inexog instd insts {
-    if strpos("``varset'name'", ".") {
+    if strpos("``varset'name'", ".") | strpos("``varset'name'", "#") {
+      fvexpand ``varset'name' if `touse'
+      local `varset'name
+      foreach var in `r(varlist)' {
+        _ms_parse_parts `var'
+        if !r(omit) local `varset'name ``varset'name' `var'
+      }
       fvrevar ``varset'name' if `touse'
       local `varset' `r(varlist)'
     }
@@ -162,6 +168,9 @@ program define reghdfejl, eclass
     local feterms: subinstr local feterms "##c." ")*(", all
     local feterms: subinstr local feterms "#c." ")&(", all
     local feterms: subinstr local feterms "##i." ")&fe(", all
+    local feterms: subinstr local feterms "##" "#", all
+    local feterms: subinstr local feterms "#" "#i.", all
+    local feterms: subinstr local feterms "#i.i." "#i.", all
     local feterms: subinstr local feterms "#i." ")&fe(", all
     local feterms: subinstr local feterms "i." "fe(", all
     local feterms: subinstr local feterms " " ") + ", all
@@ -229,7 +238,7 @@ program define reghdfejl, eclass
   jl, qui: sizedf = size(df)
   if "`wtvar'"!="" jl, qui: sumweights = mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0)
 
-  jl, qui: df = nothing  // yield memory
+//   jl, qui: df = nothing  // yield memory
   if "`compact'"!="" {
     jl, qui: GC.gc()
     use `compactfile'
@@ -265,10 +274,10 @@ program define reghdfejl, eclass
     jl, qui: esample = nothing
   }
 
-  if "`inexog'`ivarg'" != "" {  // if there are no coefficient estimates...
+  if "`inexog'`ivarg'" != "" {  // if there are coefficient estimates...
     tempname b V
 
-    jl, qui: I = [1+`kinexog'+`hascons':length(coef(m)) ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']  // cons-exog-endog -> endog-exog-cons
+    jl, qui: I = [1+`kinexog'+`hascons':`kinexog'+`hascons'+`kinstd' ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']  // cons-exog-endog -> endog-exog-cons
     jl, qui: `b' = collect(coef(m)[I]')
     jl, qui: `V' = replace!(vcov(m)[I,I], NaN=>0.)
     jl GetMatFromMat `b'
