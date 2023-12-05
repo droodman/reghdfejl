@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.3.1 30nov2023}{...}
+{* *! version 0.4.0 5dec2023}{...}
 
 {title:Title}
 
@@ -23,6 +23,10 @@
 {p 8 15 2} {cmd:reghdfejl}
 {depvar} [{indepvars}] {cmd:(}{it:endogvars} {cmd:=} {it:instruments}{cmd:)}
 {ifin} {weight} {cmd:,} {opth a:bsorb(reghdfejl##absorb:absvars)} [{help reghdfejl##options_table:options}]{p_end}
+
+{p 8 15 2} {cmd:reghdfejl mask}
+
+{p 8 15 2} {cmd:reghdfejl unmask}
 
 {marker options_table}{...}
 {synoptset 27 tabbed}{...}
@@ -102,6 +106,11 @@ the {browse "https://docs.julialang.org/en/v1/manual/multi-threading/":system en
 
 {pstd}
 The other novel option, {cmd:gpu} specifies the use of NVIDIA or Apple Silicon GPUs for computation. Typically this modestly increases speed.
+
+{pstd}
+The command {cmd:reghdfejl mask} redirects all {cmd:reghdfe} calls to {cmd:reghdfejl}. {cmd:reghdfejl unmask} stops the redirection. This is useful is when using other Stata packages that call {cmd:reghdfe}, such as 
+{stata findit eventdd:eventdd}. It can speed up those commands as well. However, since {cmd:reghdfe} and {cmd:reghdfejl} do not accept exactly the same options
+and return exactly the same result sets, no guarantee can be given that this hack will work in any particular case.
 
 
 {marker absorb}{...}

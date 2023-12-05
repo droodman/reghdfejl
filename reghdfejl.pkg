@@ -7,7 +7,7 @@ d
 d KW: Julia
 d KW: plugins
 d
-d Requires: Stata version 16. julia from SSC, Julia 1.9
+d Requires: Stata version 16. julia from SSC, Julia 1.9.4
 d
 d Distribution-Date: 20231126
 d
@@ -18,3 +18,5 @@ f reghdfejl.ado
 f reghdfejl_p.ado
 f reghdfejl_estat.ado
 f reghdfejl.sthlp
+f reghdfejl_masker.ado
+

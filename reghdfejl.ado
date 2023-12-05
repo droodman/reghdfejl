@@ -1,4 +1,4 @@
-*! reghdfejl 0.3.3 3 December 2023
+*! reghdfejl 0.4.0 5 December 2023
 
 // The MIT License (MIT)
 //
@@ -37,6 +37,57 @@ program define reghdfejl, eclass
 	}
 
   local cmdline `0'
+
+  if `"`0'"'=="mask" {
+    cap findfile reghdfe.ado
+    if _rc {
+      qui findfile reghdfejl_masker.ado
+      mata pathsplit("`r(fn)'", _reghdfejlp1="", _reghdfejlp2=""); st_local("dest", _reghdfejlp1+"/reghdfe.ado")
+      copy "`r(fn)'" "`dest'", replace
+      di _n as txt "File copied:"
+      di as res "  `r(fn)' -> `dest'"
+    }
+    else {
+      local reghdfeado `r(fn)'
+      qui mata st_local("firstline", fget(fh = fopen("`r(fn)'", "r"))); _fclose(fh)
+      if `"`firstline'"'=="*! REGHDFEJLMASKER" {
+        di as txt "Already masked."
+        exit 0
+      }
+      mata st_local("dest", pathrmsuffix("`reghdfeado'") + "_backup_.ado")
+      copy "`reghdfeado'" "`dest'", replace
+      qui findfile reghdfejl_masker.ado
+      cap noi copy "`r(fn)'" "`reghdfeado'", replace
+      if _rc==608 {
+        di as err "If you have run reghdfe in this Stata session, it can't be masked now. Restart Stata first."
+        error 608
+      }
+      di _n as txt "Files copied:"
+      di as res "  `reghdfeado' -> `dest'"
+      di as res "  `r(fn)' -> `reghdfeado'"
+    }
+    di as txt "The change will take effect after you restart Stata."
+    exit 0
+  }
+
+  if `"`0'"'=="unmask" {
+    cap findfile reghdfe_backup_.ado
+    if _rc {
+      di as err `"Can't find the reghdfe.ado backup file, "reghdfe_backup_.ado". Reinstall reghdfe by typing or clicking on:"'
+      di "{stata ssc install reghdfe, replace}"
+      exit 198
+    }
+    local source `r(fn)'
+    cap findfile reghdfe_p.ado
+    if _rc qui findfile reghdfejl.ado
+    mata pathsplit("`r(fn)'", _reghdfejlp1="", _reghdfejlp2=""); st_local("dest", _reghdfejlp1+"/reghdfe.ado")
+    copy "`source'" "`dest'", replace
+    di _n as txt "File copied:"
+    di as res "  `source' -> `dest'"
+    di as txt "The change will take effect after you restart Stata."
+    exit 0
+  }
+
 	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
                                           noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact *]
   local sample = "`sample'"==""
@@ -60,8 +111,9 @@ program define reghdfejl, eclass
       di as err "And it requires that Julia be installed, following the instruction under Installation in {help jl##installation:help jl}."
       exit 198
     }
-    jl      AddPkg BLISBLAS  `gpulib' FixedEffectModels DataFrames Vcov
-    jl, qui: using BLISBLAS, `gpulib',FixedEffectModels,DataFrames,Vcov
+    local blaslib = cond(c(os)=="MacOSX", "AppleAccelerate", "BLISBLAS")
+    jl      AddPkg `blaslib'  `gpulib' FixedEffectModels DataFrames Vcov
+    jl, qui: using `blaslib', `gpulib',FixedEffectModels,DataFrames,Vcov
     global reghdfejl_loaded 1
   }
 
@@ -380,7 +432,7 @@ program define reghdfejl, eclass
   ereturn local marginsnotok Residuals SCore
   ereturn local predict reghdfejl_p
   ereturn local estat_cmd reghdfejl_estat
-  ereturn local cmdline `cmdline'
+  ereturn local cmdline reghdfejl `cmdline'
   ereturn local cmd reghdfejl
 
   Display, `diopts' level(`level') `noheader' `notable'
@@ -422,3 +474,4 @@ end
 * 0.3.1 Added compact option
 * 0.3.2 Much better handling of interactions. Switched to BLISBLAS.jl.
 * 0.3.3 Fixed bugs in handling of interactions and constant term
+* 0.4.0 Added mask and unmask
