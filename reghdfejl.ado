@@ -1,4 +1,4 @@
-*! reghdfejl 0.4.0 5 December 2023
+*! reghdfejl 0.4.1 6 December 2023
 
 // The MIT License (MIT)
 //
@@ -178,7 +178,7 @@ program define reghdfejl, eclass
   }
 
   foreach varset in dep inexog instd insts {
-    if strpos("``varset'name'", ".") | strpos("``varset'name'", "#") {
+    if strpos("``varset'name'", ".") | strpos("``varset'name'", "#") | strpos("``varset'name'", "-") | strpos("``varset'name'", "?") | strpos("``varset'name'", "*") | strpos("``varset'name'", "~") {
       fvexpand ``varset'name' if `touse'
       local `varset'name
       foreach var in `r(varlist)' {
@@ -475,3 +475,4 @@ end
 * 0.3.2 Much better handling of interactions. Switched to BLISBLAS.jl.
 * 0.3.3 Fixed bugs in handling of interactions and constant term
 * 0.4.0 Added mask and unmask
+* 0.4.1 Properly handle varlists with -/?/*/~
