@@ -1,4 +1,4 @@
-*! reghdfejl 0.4.1 6 December 2023
+*! reghdfejl 0.4.2 7 December 2023
 
 // The MIT License (MIT)
 //
@@ -112,8 +112,12 @@ program define reghdfejl, eclass
       exit 198
     }
     local blaslib = cond(c(os)=="MacOSX", "AppleAccelerate", "BLISBLAS")
-    jl      AddPkg `blaslib'  `gpulib' FixedEffectModels DataFrames Vcov
-    jl, qui: using `blaslib', `gpulib',FixedEffectModels,DataFrames,Vcov
+    jl AddPkg `blaslib'
+    jl AddPkg `gpulib'
+    jl AddPkg FixedEffectModels, minver(1.10.2)
+    jl AddPkg DataFrames, minver(1.6.1)
+    jl AddPkg Vcov, minver(0.8.1)
+    jl, qui: using `blaslib', `gpulib', FixedEffectModels, DataFrames, Vcov
     global reghdfejl_loaded 1
   }
 
@@ -476,3 +480,4 @@ end
 * 0.3.3 Fixed bugs in handling of interactions and constant term
 * 0.4.0 Added mask and unmask
 * 0.4.1 Properly handle varlists with -/?/*/~
+* 0.4.2 Set version minima for some packages

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.0 5dec2023}{...}
+{* *! version 0.4.2 7dec2023}{...}
 
 {title:Title}
 
@@ -44,17 +44,18 @@
 {synopt:{opt l:evel(#)}}set confidence level; default is normally 95{p_end}
 {synopt:{it:display options}}{help ml##display_options:standard options} governing results display{p_end}
 {synoptline}
-{p 4 6 2}{it:depvar} and {it:indepvars} may contain {help tsvarlist:factor variables} and {help tsvarlist:time-series operators}.
-{it:depvar} cannot be of the form {it:i.y} though, only {it:#.y} (where # is a number){p_end}
+{p 4 6 2}{it:depvar} and {it:indepvars} may contain {help tsvarlist:factor variables} and {help tsvarlist:time-series operators}. {it:depvar} 
+cannot be of the form {it:i.y} though, only {it:#.y} (where # is a number){p_end}
 
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:reghdfejl} is designed as a slot-in replacement for {help reghdfe}. It is missing some features of {cmd:reghdfe}. But it
+{cmd:reghdfejl} is designed as a slot-in replacement for {help reghdfe}. It is missing some features of {cmd:reghdfe}. And it is
+{it:not} guarantee to exactly match {cmd:reghdfe}'s results. But it
 can run ~10 times faster because it relies on the Julia program {browse "https://github.com/FixedEffects/FixedEffectModels.jl":FixedEffectsModel.jl},
-which implements the same core methods (Correia 2016).
+by Matthieu Gomez, which implements similar methods (Correia 2016).
 {cmd:reghdfejl} also fits instrumental variables models
 with two-stage least squares. In this capacitiy it is not as full-featured as {cmd:ivreghdfe}, because it does not (yet) work as a wrapper for 
 {cmd:ivreg2}.
@@ -64,7 +65,9 @@ To run, {cmd:reghdfejl} requires that the Stata command {cmd:jl} be installed; "
 Julia 1.9.4 or later, which is free. See these {help jl##installation:installation instructions}.
 
 {pstd}
-Because Julia performs just-in-time compilation, and because {cmd:reghdfejl} may need to install Julia packages, there can be long lags on first use. 
+Because Julia performs just-in-time compilation, and because {cmd:reghdfejl} may need to install Julia packages, there can be long lags on first 
+use. It can also take longer the first time in a session that you use a feature, such as multiway clustering, that forces compilation
+of another function in the Julia package.
 
 {pstd}
 If {cmd:reghdfejl} appears to be failing to install the needed packages,
@@ -99,13 +102,16 @@ useful when you have plenty of RAM, when the number of non-absorbed regressors i
 (for then the computational efficiency of Julia shines).
 
 {pstd}
-{cmd:reghdfejl} offers two novel options that can increase speed. The {opt threads(#)}
-option can reduce the number of CPU threads Julia uses. The default number--and the maximum that {cmd:reghdfejl} can access--is set by 
-the {browse "https://docs.julialang.org/en/v1/manual/multi-threading/":system environment variable JULIA_NUM_THREADS}. See 
+{cmd:reghdfejl} offers two novel features that can increase speed. The first is access to multithreading in Julia, even in 
+flavors of Stata that do not offer multiprocessing. The {opt threads(#)}
+option pertains to this feature. But it can only {it:reduce} the number of CPU threads Julia uses. The default number--and the 
+maximum--is set by the {browse "https://docs.julialang.org/en/v1/manual/multi-threading/":system environment variable JULIA_NUM_THREADS}. It is 
+possible for the default to be too high as well as too low. If you set it high, then you can experiment using {opt threads(#)}. See 
 {help jl##threads:help jl} for more on determining and controlling the number of threads.
 
 {pstd}
-The other novel option, {cmd:gpu} specifies the use of NVIDIA or Apple Silicon GPUs for computation. Typically this modestly increases speed.
+The other novel feature is access to GPU-based computation. The {cmd:gpu} specifies the use of NVIDIA or Apple Silicon 
+GPUs for computation. Typically this modestly increases speed.
 
 {pstd}
 The command {cmd:reghdfejl mask} redirects all {cmd:reghdfe} calls to {cmd:reghdfejl}. {cmd:reghdfejl unmask} stops the redirection. This is useful is when using other Stata packages that call {cmd:reghdfe}, such as 
