@@ -1,4 +1,4 @@
-*! reghdfejl 0.4.2 7 December 2023
+*! reghdfejl 0.4.3 7 December 2023
 
 // The MIT License (MIT)
 //
@@ -28,6 +28,8 @@
 cap program drop reghdfejl
 program define reghdfejl, eclass
   version 16
+
+  local JLVERSION 0.7.1
 
   if replay() {
 		if "`e(cmd)'" != "reghdfejl" error 301
@@ -66,7 +68,6 @@ program define reghdfejl, eclass
       di as res "  `reghdfeado' -> `dest'"
       di as res "  `r(fn)' -> `reghdfeado'"
     }
-    di as txt "The change will take effect after you restart Stata."
     exit 0
   }
 
@@ -86,6 +87,14 @@ program define reghdfejl, eclass
     di as res "  `source' -> `dest'"
     di as txt "The change will take effect after you restart Stata."
     exit 0
+  }
+
+  jl version
+  if "`r(version)'" != "`JLVERSION'" {
+    di as txt "The Stata package julia is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
+    ssc install julia, replace
+    jl version
+    _assert "`r(version)'"=="`JLVERSION'", msg(Failed to install required version of the julia package.) rc(198)
   }
 
 	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
@@ -481,3 +490,4 @@ end
 * 0.4.0 Added mask and unmask
 * 0.4.1 Properly handle varlists with -/?/*/~
 * 0.4.2 Set version minima for some packages
+* 0.4.3 Add julia.ado version check
