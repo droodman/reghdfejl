@@ -87,6 +87,9 @@ displays these corrections in a table after the main results. {cmd:reghdfejl} do
 * It does not offer the {help reghdfe##opt_group_fes:Group FE} features.
 
 {p 4 6 0}
+* It does not accept frequency weights ("fweights").
+
+{p 4 6 0}
 * It does not allow control over whether the constant term is reported. The constant is always absorbed.
 
 {p 4 6 0}

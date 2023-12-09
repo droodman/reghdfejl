@@ -89,15 +89,7 @@ program define reghdfejl, eclass
     exit 0
   }
 
-  jl version
-  if "`r(version)'" != "`JLVERSION'" {
-    di as txt "The Stata package julia is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
-    ssc install julia, replace
-    jl version
-    _assert "`r(version)'"=="`JLVERSION'", msg(Failed to install required version of the julia package.) rc(198)
-  }
-
-	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
+	syntax anything [if] [in] [aw pw iw fw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
                                           noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact *]
   local sample = "`sample'"==""
 
@@ -114,19 +106,24 @@ program define reghdfejl, eclass
   if `threads' local threadsopt , nthreads = `threads'
   
   if `"$reghdfejl_loaded"'=="" {
-    cap jl: nothing
+    cap jl version
     if _rc {
       di as err `"Can't access Julia. {cmd:reghdfejl} requires that the {cmd:jl} command be installed, via {stata ssc install julia}."
       di as err "And it requires that Julia be installed, following the instruction under Installation in {help jl##installation:help jl}."
       exit 198
     }
+
+    if "`r(version)'" != "`JLVERSION'" {
+      di as txt "The Stata package {cmd:julia} is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
+      ssc install julia, replace
+    }
+
     local blaslib = cond(c(os)=="MacOSX", "AppleAccelerate", "BLISBLAS")
     jl AddPkg `blaslib'
     jl AddPkg `gpulib'
     jl AddPkg FixedEffectModels, minver(1.10.2)
-    jl AddPkg DataFrames, minver(1.6.1)
     jl AddPkg Vcov, minver(0.8.1)
-    jl, qui: using `blaslib', `gpulib', FixedEffectModels, DataFrames, Vcov
+    jl, qui: using `blaslib', `gpulib', FixedEffectModels, Vcov
     global reghdfejl_loaded 1
   }
 
@@ -337,9 +334,10 @@ program define reghdfejl, eclass
     jl, qui: esample = nothing
   }
 
-  tempname b V
-  jl, qui: SF_scal_save("`b'", length(coef(m)))
-  if `b' {
+  jl, qui: SF_scal_save("`t'", length(coef(m)))
+  if `t' {
+    tempname b V
+
     jl, qui: SF_scal_save("`b'", coefnames(m)[1]=="(Intercept)")
     local hascons = `b'
 
