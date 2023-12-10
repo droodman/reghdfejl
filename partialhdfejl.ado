@@ -43,7 +43,7 @@ program define partialhdfejl
 
   tokenize `absorb'
   local absorb `*'  // remove extra spaces
-  local feterms i.`: subinstr local absorb " " " + i.", all'
+  local feterms i.`: subinstr local absorb " " " i.", all'
 
   local absorbvars `feterms'
   local feterms: subinstr local feterms "##c." ")*(", all
@@ -63,7 +63,6 @@ program define partialhdfejl
   local absorbvars: subinstr local absorbvars "c." " ", all
   local absorbvars: subinstr local absorbvars "#" " ", all
 
-  local absorbvars `absorbvars'
   foreach var in `absorbvars' {
     cap confirm numeric var `var'
     if _rc {

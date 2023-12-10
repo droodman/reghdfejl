@@ -1,4 +1,4 @@
-*! reghdfejl 0.4.3 7 December 2023
+*! reghdfejl 0.4.3 9 December 2023
 
 // The MIT License (MIT)
 //
@@ -242,7 +242,6 @@ program define reghdfejl, eclass
     local absorbvars: subinstr local absorbvars "c." " ", all
     local absorbvars: subinstr local absorbvars "#" " ", all
 
-    local absorbvars `absorbvars'
     foreach var in `absorbvars' {
       cap confirm numeric var `var'
       if _rc {
@@ -324,9 +323,9 @@ program define reghdfejl, eclass
     jl, qui: res = nothing
   }
 
-  tempname t
+  tempname t N
 
-  jl, qui: SF_scal_save("`t'", nobs(m))
+  jl, qui: SF_scal_save("`N'", nobs(m))
 
   if `sample' {
     jl, qui: esample = Vector{Float64}(m.esample)
@@ -358,7 +357,7 @@ program define reghdfejl, eclass
   }
   else local hascons = 0
 
-  ereturn post `b' `V', depname(`depname') obs(`=`t'') buildfvinfo findomitted `=cond(`sample', "esample(`touse')", "")'
+  ereturn post `b' `V', depname(`depname') obs(`=`N'') buildfvinfo findomitted `=cond(`sample', "esample(`touse')", "")'
 
   ereturn scalar N_hdfe = 0`N_hdfe'
   jl, qui: SF_scal_save("`t'", sizedf[1])
@@ -449,7 +448,6 @@ program define reghdfejl, eclass
   Display, `diopts' level(`level') `noheader' `notable'
 end
 
-cap program drop Display
 program define Display
   version 16
   syntax [, Level(real `c(level)') noHEADer notable *]
@@ -486,6 +484,6 @@ end
 * 0.3.2 Much better handling of interactions. Switched to BLISBLAS.jl.
 * 0.3.3 Fixed bugs in handling of interactions and constant term
 * 0.4.0 Added mask and unmask
-* 0.4.1 Properly handle varlists with -/?/*/~
+* 0.4.1 Handle varlists with -/?/*/~
 * 0.4.2 Set version minima for some packages
-* 0.4.3 Add julia.ado version check
+* 0.4.3 Add julia.ado version check. Fix bug in posting sample size.
