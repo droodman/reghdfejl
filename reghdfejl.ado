@@ -1,4 +1,4 @@
-*! reghdfejl 0.4.3 9 December 2023
+*! reghdfejl 0.4.3 10 December 2023
 
 // The MIT License (MIT)
 //
@@ -281,6 +281,8 @@ program define reghdfejl, eclass
   }
 
   jl PutVarsToDFNoMissing `vars' if `touse'  // put all vars in Julia DataFrame named df
+  qui jl: size(df,1)
+  _assert `r(ans)', rc(2001) msg(insufficient observations)
 
   if "`compact'" !="" drop _all
 
@@ -486,4 +488,4 @@ end
 * 0.4.0 Added mask and unmask
 * 0.4.1 Handle varlists with -/?/*/~
 * 0.4.2 Set version minima for some packages
-* 0.4.3 Add julia.ado version check. Fix bug in posting sample size.
+* 0.4.3 Add julia.ado version check. Fix bug in posting sample size. Prevent crash on insufficient observations.
