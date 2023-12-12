@@ -29,8 +29,6 @@ cap program drop reghdfejl
 program define reghdfejl, eclass
   version 16
 
-  local JLVERSION 0.7.1
-
   if replay() {
 		if "`e(cmd)'" != "reghdfejl" error 301
 		if _by() error 190
@@ -95,7 +93,7 @@ program define reghdfejl, eclass
 
   _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
   _assert `tolerance'>0, msg("{cmdab:tol:erance()} must be positive.") rc(198)
-  
+
   _get_diopts diopts _options, `options'
 
   marksample touse
@@ -105,27 +103,7 @@ program define reghdfejl, eclass
 
   if `threads' local threadsopt , nthreads = `threads'
   
-  if `"$reghdfejl_loaded"'=="" {
-    cap jl version
-    if _rc {
-      di as err `"Can't access Julia. {cmd:reghdfejl} requires that the {cmd:jl} command be installed, via {stata ssc install julia}."
-      di as err "And it requires that Julia be installed, following the instruction under Installation in {help jl##installation:help jl}."
-      exit 198
-    }
-
-    if "`r(version)'" != "`JLVERSION'" {
-      di as txt "The Stata package {cmd:julia} is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
-      ssc install julia, replace
-    }
-
-    local blaslib = cond(c(os)=="MacOSX", "AppleAccelerate", "BLISBLAS")
-    jl AddPkg `blaslib'
-    jl AddPkg `gpulib'
-    jl AddPkg FixedEffectModels, minver(1.10.2)
-    jl AddPkg Vcov, minver(0.8.1)
-    jl, qui: using `blaslib', `gpulib', FixedEffectModels, Vcov
-    global reghdfejl_loaded 1
-  }
+  reghdfejl_load
 
   if `"`exp'"' != "" {
     cap confirm var `exp'

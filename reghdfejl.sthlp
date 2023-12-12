@@ -11,26 +11,34 @@
 {title:Syntax}
 
 {pstd}
-{bf:Fixed effects regressions:}
+{bf:Fixed effects regression:}
 
 {p 8 15 2} {cmd:reghdfejl}
 {depvar} [{indepvars}] 
-{ifin} {weight} {cmd:,} {opth a:bsorb(reghdfejl##absorb:absvars)} [{help reghdfejl##options_table:options}]{p_end}
+{ifin} {weight} {cmd:,} [{cmdab:a:bsorb}({it:absvars}, [{cmdab:save:fe}])] [{help reghdfejl##options_table:{it:reghdfejl options}}]{p_end}
 
 {pstd}
-{bf:Instrumented fixed effects regressions:}
+{bf:Instrumented fixed effects regression:}
 
 {p 8 15 2} {cmd:reghdfejl}
 {depvar} [{indepvars}] {cmd:(}{it:endogvars} {cmd:=} {it:instruments}{cmd:)}
-{ifin} {weight} {cmd:,} {opth a:bsorb(reghdfejl##absorb:absvars)} [{help reghdfejl##options_table:options}]{p_end}
+{ifin} {weight} {cmd:,} [{cmdab:a:bsorb}({it:absvars}, [{cmdab:save:fe}])] [{help reghdfejl##options_table:{it:reghdfejl options}}]{p_end}
 
 {p 8 15 2} {cmd:reghdfejl mask}
 
 {p 8 15 2} {cmd:reghdfejl unmask}
 
-{marker options_table}{...}
+{pstd}
+{bf:Partial fixed effects out of variables:}
+
+{p 8 15 2} {cmd:partialhdfejl}
+{depvars}
+{ifin} {weight} {cmd:,} {opth a:bsorb(reghdfejl##absorb:absvars)} [{help reghdfejl##options_table:{it:partialhdfejl options}}]{p_end}
+
+
+{marker reghdfejl_options_table}{...}
 {synoptset 27 tabbed}{...}
-{synopthdr}
+{synopthdr:reghdfejl option}
 {synoptline}
 {synopt: {cmdab:a:bsorb}({it:absvars}, [{cmdab:save:fe}])}categorical variables representing the fixed effects to be absorbed{p_end}
 {synopt: {opth vce:(reghdfejl##model_opts:vcetype)}}{it:vcetype} may be {opt un:adjusted} (default), {opt r:obust} or {opt cl:uster} {help fvvarlist} (allowing multi-way clustering){p_end}
@@ -46,6 +54,22 @@
 {synoptline}
 {p 4 6 2}{it:depvar} and {it:indepvars} may contain {help tsvarlist:factor variables} and {help tsvarlist:time-series operators}. {it:depvar} 
 cannot be of the form {it:i.y} though, only {it:#.y} (where # is a number){p_end}
+
+
+{marker partialhdfejl_options_table}{...}
+{synoptset 27 tabbed}{...}
+{synopthdr:partialhdfejl option}
+{synoptline}
+{synopt: {cmdab:a:bsorb}({it:absvars})}categorical variables representing the fixed effects to be absorbed{p_end}
+{synopt:{opt tol:erance(#)}}criterion for convergence. default is 1e-8{p_end}
+{synopt:{opt iter:ate(#)}}maximum number of iterations; default is 16,000{p_end}
+{synopt:{opt compact}}temporarily saves all data to disk in order to free memory{p_end}
+{synopt:{opt gpu}}use NVIDIA or Apple Silicon GPU{p_end}
+{synopt:{opt gen:erate(varlist)}}names for partialled-out results{p_end}
+{synopt:{opt pre:fix(string)}}prefix stub for partialled-out results{p_end}
+{synopt:{opt replace}}overwrite any existing variables identified by {opt gen:erate()} or {opt pre:fix()}{p_end}
+{synoptline}
+{p 4 6 2}Exactly one of {opt gen:erate()} and {opt pre:fix()} must be specified.
 
 
 {marker description}{...}
@@ -118,8 +142,14 @@ GPUs for computation. Typically this modestly increases speed.
 
 {pstd}
 The command {cmd:reghdfejl mask} redirects all {cmd:reghdfe} calls to {cmd:reghdfejl}. {cmd:reghdfejl unmask} stops the redirection. This is useful is when using other Stata packages that call {cmd:reghdfe}, such as 
-{stata findit eventdd:eventdd}. It can speed up those commands as well. However, since {cmd:reghdfe} and {cmd:reghdfejl} do not accept exactly the same options
-and return exactly the same result sets, no guarantee can be given that this hack will work in any particular case.
+{stata findit eventdd:eventdd}. It can speed up those commands as well. Since {cmd:reghdfe} and {cmd:reghdfejl} do not accept exactly the same options,
+nor return exactly the same result sets, no guarantee can be given that this hack will work in any particular case.
+
+{pstd}
+{cmd:partialhdfejl} partials a given set of fixed effects out of several variables at once, restricting to the sample defined by the missingness pattern of all the
+variables together. The results are stored in variables whose names are listed in a {opt gen:erate()} option, by implied by a {opt pre:fix()} option. For example, 
+{cmd: partialhdfejl x y, a(z) prefix(_)} stores the partialled-out versions of {cmd:x} and {cmd:y} in {cmd:_x} and {cmd:_y}. {cmd:partialhdfe} throws an error
+if the destination variables already exist, unless {cmd:replace} is also specified.
 
 
 {marker absorb}{...}
@@ -137,12 +167,11 @@ and return exactly the same result sets, no guarantee can be given that this hac
 {synopt:{it:v1}{cmd:#}{it:v2}{cmd:#}{it:v3}{cmd:##c.(}{it:v4 v5}{cmd:)}}factor operators can be combined{p_end}
 {synoptline}
 {p2colreset}{...}
-{p 4 6 2}- To save the estimates of specific absvars, write {newvar}{inp:={it:absvar}}.{p_end}
+{p 4 6 2}- To save the estimates of specific absvars, write {newvar}{inp:={it:absvar}}. This works with {cmd:reghdfejl}, not {cmd:partialhdfejl}.{p_end}
 {p 4 6 2}-  However, be aware that estimates for the fixed effects are generally inconsistent and not econometrically identified.{p_end}
 {p 4 6 2}- Using categorical interactions (e.g. {it:x}{cmd:#}{it:z}) is easier and faster than running {it:egen group(...)} beforehand.{p_end}
 {p 4 6 2}- {browse "http://scorreia.com/research/singletons.pdf":Singleton observations} are dropped iteratively until no more singletons are found (see the linked article for details).{p_end}
-{p 4 6 2}- Slope-only absvars ("state#c.time") have poor numerical stability and slow convergence.
-If you need those, either i) increase tolerance or
+{p 4 6 2}- Slope-only absvars ("state#c.time") have poor numerical stability and slow convergence. If you need those, either i) increase tolerance or
 ii) use slope-and-intercept absvars ("state##c.time"), even if the intercept is redundant.
 For instance if absvar is "i.zipcode i.state##c.time" then i.state is redundant given i.zipcode, but
 convergence will still be {it:much} faster.{p_end}
@@ -265,9 +294,11 @@ the resulting variable will always be of type {it:double}.{p_end}
 {phang}. {stata reghdfejl price weight length, absorb(rep78) vce(cluster rep78)}{p_end}
 
 {phang}. {stata webuse nlswork}{p_end}
-{phang}. {stata reghdfejl ln_wage grade age ttl_exp tenure not_smsa south , absorb(idcode year)}{p_end}
-{phang}. {stata reghdfejl ln_wage grade age ttl_exp tenure not_smsa south , absorb(idcode year occ_code)}{p_end}
+{phang}. {stata reghdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(idcode year)}{p_end}
+{phang}. {stata reghdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(year occ_code) cluster(year occ_code)}{p_end}
 
+{phang}. {stata partialhdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(year occ_code) prefix(_) replace}{p_end}
+{phang}. {stata reghdfejl _ln_wage  _age _ttl_exp _tenure _not_smsa _south, cluster(year occ_code) nocons}  // same point estimates as in previous regression{p_end}
 
 {marker results}{...}
 {title:Stored results}

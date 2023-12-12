@@ -1,14 +1,20 @@
 // Perform HDFE partialling in a common sample
 cap program drop partialhdfejl
 program define partialhdfejl
-  syntax varlist [if] [in] [aw pw fw iw/], Absorb(string) [GENerate(string) PREfix(string) replace]
-  
+  syntax varlist [if] [in] [aw pw fw iw/], Absorb(string) [GENerate(string) PREfix(string) replace ITerations(integer 16000) gpu TOLerance(real 1e-8) compact]
+
+  _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
+  _assert `tolerance'>0, msg("{cmdab:tol:erance()} must be positive.") rc(198)
+
   if (`"`generate'"'!="") + (`"`prefix'"'!="") != 1 {
     di as err "Specify exactly one of {cmdab:gen:erate()} or {cmdab:pre:fix()}."
     exit 198
   }
   
   marksample touse
+
+  local gpulib = cond(c(os)=="MacOSX", "Metal", "CUDA")
+  if "`gpu'"!="" local methodopt , method = :`gpulib'
 
   if strpos("`varlist'", ".") | strpos("`varlist'", "#") | strpos("`varlist'", "-") | strpos("`varlist'", "?") | strpos("`varlist'", "*") | strpos("`varlist'", "~") {
     fvexpand `varlist' if `touse'
@@ -33,14 +39,8 @@ program define partialhdfejl
     local wtopt , weights = :`wtvar'
   }
 
-  local blaslib = cond(c(os)=="MacOSX", "AppleAccelerate", "BLISBLAS")
-  local gpulib  = cond(c(os)=="MacOSX", "Metal", "CUDA")
-
-  jl AddPkg `blaslib'
-  jl AddPkg `gpulib'
-  jl AddPkg FixedEffectModels, minver(1.10.2)
-  jl, qui: using `blaslib', `gpulib', FixedEffectModels
-
+  reghdfejl_load
+  
   tokenize `absorb'
   local absorb `*'  // remove extra spaces
   local feterms i.`: subinstr local absorb " " " i.", all'
@@ -75,9 +75,26 @@ program define partialhdfejl
   
   markout `touse' `absorbvars'
 
+  if "`compact'"!="" {
+    tempfile compactfile
+    save "`compactfile'"
+    keep `varlist' `absorbvars' `wtvar' `touse'
+    qui keep if `touse'
+  }
+
   jl PutVarsToDFNoMissing `varlist' `absorbvars' `wtvar' if `touse'
-  jl, qui: p = partial_out(df, @formula(`:subinstr local varlist " " " + ", all' ~ 1 `feterms') `wtopt', add_mean=false)
+  qui jl: size(df,1)
+  _assert `r(ans)', rc(2001) msg(insufficient observations)
+
+  if "`compact'" !="" drop _all
+
+  jl, qui: p = partial_out(df, @formula(`:subinstr local varlist " " " + ", all' ~ 1 `feterms') `wtopt', tol=`tolerance', maxiter=`iterations' `methodopt')
   
+  if "`compact'"!="" {
+    jl, qui: GC.gc()
+    use `compactfile'
+  }
+
   if `"`prefix'"' != "" local generate `prefix'`: subinstr local varlist " " " `prefix'", all'
     else if "`replace'"!="" {
       tempname t
