@@ -1,4 +1,4 @@
-*! reghdfejl 0.4.3 10 December 2023
+*! reghdfejl 0.5.0 11 December 2023
 
 // The MIT License (MIT)
 //
@@ -467,3 +467,4 @@ end
 * 0.4.1 Handle varlists with -/?/*/~
 * 0.4.2 Set version minima for some packages
 * 0.4.3 Add julia.ado version check. Fix bug in posting sample size. Prevent crash on insufficient observations.
+* 0.5.0 Add gpu & other options to partialhdfejl. Document the command. Create reghdfejl_load.ado.
