@@ -1,4 +1,4 @@
-*! reghdfejl 0.5.0 11 December 2023
+*! reghdfejl 0.5.1 12 December 2023
 
 // The MIT License (MIT)
 //
@@ -87,8 +87,8 @@ program define reghdfejl, eclass
     exit 0
   }
 
-	syntax anything [if] [in] [aw pw iw fw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
-                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact *]
+	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
+                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact NOIsily noCONStant *]
   local sample = "`sample'"==""
 
   _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
@@ -156,7 +156,7 @@ program define reghdfejl, eclass
       if strpos(`"`term'"', "#") {  // allow clustering on interactions
         local term: subinstr local term "#" " ", all
         tempvar t
-        egen long `t' = group(`term')
+        qui egen long `t' = group(`term')
         local _cluster `_cluster' `t'
       }
       else local _cluster `_cluster' `term'
@@ -168,13 +168,17 @@ program define reghdfejl, eclass
   foreach varset in dep inexog instd insts {
     if strpos("``varset'name'", ".") | strpos("``varset'name'", "#") | strpos("``varset'name'", "-") | strpos("``varset'name'", "?") | strpos("``varset'name'", "*") | strpos("``varset'name'", "~") {
       fvexpand ``varset'name' if `touse'
+      local `varset'
       local `varset'name
       foreach var in `r(varlist)' {
         _ms_parse_parts `var'
-        if !r(omit) local `varset'name ``varset'name' `var'
+        if !r(omit) {
+          local `varset'name ``varset'name' `var'
+          tempvar t
+          qui gen double `t' = `var' if `touse'
+          local `varset' ``varset'' `t'
+        }
       }
-      fvrevar ``varset'name' if `touse'
-      local `varset' `r(varlist)'
     }
     else local `varset' ``varset'name'
     local k`varset': word count ``varset''
@@ -224,7 +228,7 @@ program define reghdfejl, eclass
       cap confirm numeric var `var'
       if _rc {
         tempvar t
-        egen long `t' = group(`var') if `touse'
+        qui egen long `t' = group(`var') if `touse'
         local absorbvars: subinstr local absorbvars "`var'" "`t'", word all
         local feterms   : subinstr local feterms    "`var'" "`t'", word all
       }
@@ -259,6 +263,8 @@ program define reghdfejl, eclass
   }
 
   jl PutVarsToDFNoMissing `vars' if `touse'  // put all vars in Julia DataFrame named df
+  if "`noisily'"!="" jl: df
+
   qui jl: size(df,1)
   _assert `r(ans)', rc(2001) msg(insufficient observations)
 
@@ -272,12 +278,17 @@ program define reghdfejl, eclass
   }
 
   * Estimate!
-  jl, qui: m = reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance', maxiter=`iterations')
+  local estcmd "reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance', maxiter=`iterations')"
+  if "`noisily'"!="" {
+    di "`estcmd'"
+    jl: m = `estcmd'
+  }
+  else jl, qui: m = `estcmd'
 
   jl, qui: sizedf = size(df)
   if "`wtvar'"!="" jl, qui: sumweights = mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0)
 
-  jl, qui: df = nothing  // yield memory
+  if "`noisily'"=="" jl, qui: df = nothing  // yield memory
   if "`compact'"!="" {
     jl, qui: GC.gc()
     use `compactfile'
@@ -297,7 +308,7 @@ program define reghdfejl, eclass
   }
 
   if "`residuals'"!="" {
-    jl, quietly: res = residuals(m); replace!(res, missing=>NaN)
+    jl, qui: res = residuals(m); replace!(res, missing=>NaN)
     jl GetVarsFromMat `residuals' if `touse', source(res) `replace'
     label var `residuals' "Residuals"
     jl, qui: res = nothing
@@ -468,3 +479,4 @@ end
 * 0.4.2 Set version minima for some packages
 * 0.4.3 Add julia.ado version check. Fix bug in posting sample size. Prevent crash on insufficient observations.
 * 0.5.0 Add gpu & other options to partialhdfejl. Document the command. Create reghdfejl_load.ado.
+* 0.5.1 Fix dropping of some non-absorbed interaction terms. Handle noconstant when no a().

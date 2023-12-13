@@ -107,6 +107,10 @@ program define partialhdfejl
     }
 
   jl GetVarsFromDF `generate' if `touse', source(p[1]) cols(`varlist') `replace'
-  
+
+  foreach var in `generate' {
+    label var `var' "Residuals"
+  }
+
   jl: df = p = nothing
 end
