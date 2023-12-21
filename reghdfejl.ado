@@ -1,4 +1,4 @@
-*! reghdfejl 0.5.1 12 December 2023
+*! reghdfejl 0.6.0 20 December 2023
 
 // The MIT License (MIT)
 //
@@ -23,7 +23,7 @@
 // SOFTWARE.
 
 
-*! Version history at bottom
+* Version history at bottom
 
 cap program drop reghdfejl
 program define reghdfejl, eclass
@@ -88,7 +88,7 @@ program define reghdfejl, eclass
   }
 
 	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
-                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact NOIsily noCONStant *]
+                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact VERBose noCONStant *]
   local sample = "`sample'"==""
 
   _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
@@ -116,6 +116,7 @@ program define reghdfejl, eclass
     local haspw = "`weight'"=="pweight"
   }
 
+  fvunab anything: `anything'
   tokenize `anything'
   local depname `1'
   macro shift
@@ -134,14 +135,23 @@ program define reghdfejl, eclass
   if `"`vce'"' != "" {
     _assert `"`cluster'"'=="", msg("only one of cluster() and vce() can be specified") rc(198)
     _assert `"`robust'"' =="", msg("only one of robust and vce() can be specified"   ) rc(198)
-    tokenize `"`vce'"'
+    tokenize `"`vce'"', parse(" ,")
     local 0, `1'
-    syntax, [Robust CLuster UNadjusted ols]
-    _assert "`robust'`cluster'`unadjusted'`ols'"!="", msg("vcetype '`0'' not allowed") rc(198)
-    if "`cluster'"!="" {
-      macro shift
-      local cluster `*'
+    syntax, [Robust CLuster UNadjusted ols bs BOOTstrap]
+    _assert "`robust'`cluster'`unadjusted'`ols'`bs'`bootstrap'"!="", msg("vcetype '`0'' not allowed") rc(198)
+    local bs = "`bs'`bootstrap'" != ""
+    macro shift
+    if `bs' {
+      local 0 `*'
+      syntax, [CLuster(string) Reps(integer 50) mse seed(string) NODOTS dots(integer 1) SIze(integer 0) PROCs(integer 1)]
+      _assert `reps'>1, msg("reps() must be an integer greater than 1") rc(198)
+      _assert `dots'>0, msg("dots() must be an integer greater than 0") rc(198)
+      _assert `size'>=0, msg("size() must be an integer greater than 0") rc(198)
+      _assert `procs'>=0, msg("procs() must be an integer greater than 0") rc(198)
+      local bscluster `cluster'
+      if `"`seed'"'!="" set seed `seed'
     }
+    else if "`cluster'"!="" local cluster `*'
   }
 
   if `"`cluster'"'=="" {
@@ -238,7 +248,7 @@ program define reghdfejl, eclass
   }
   else if "`constant'"!="" local feterms + 0
 
-  local vars `dep' `inexog' `instd' `insts' `_cluster' `wtvar' `absorbvars'
+  local vars `dep' `inexog' `instd' `insts' `_cluster' `wtvar' `absorbvars' `bscluster'
   local vars: list uniq vars
 
   if "`residuals'" != "" {
@@ -263,7 +273,8 @@ program define reghdfejl, eclass
   }
 
   jl PutVarsToDFNoMissing `vars' if `touse'  // put all vars in Julia DataFrame named df
-  if "`noisily'"!="" jl: df
+
+  if "`verbose'"!="" jl: df
 
   qui jl: size(df,1)
   _assert `r(ans)', rc(2001) msg(insufficient observations)
@@ -278,17 +289,61 @@ program define reghdfejl, eclass
   }
 
   * Estimate!
-  local estcmd "reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance', maxiter=`iterations')"
-  if "`noisily'"!="" {
-    di "`estcmd'"
-    jl: m = `estcmd'
+  jl, qui: f = @formula(`dep' ~ `inexog' `ivarg' `feterms')
+  if "`verbose'"!="" {
+    di "`reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance', maxiter=`iterations')'"
+    jl: m = reg(df, f `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance', maxiter=`iterations')
   }
-  else jl, qui: m = `estcmd'
+  else jl, qui: m = reg(df, f `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance', maxiter=`iterations')
 
+  tempname k
+  jl, qui: k = length(coef(m)); SF_scal_save("`k'", k)
   jl, qui: sizedf = size(df)
   if "`wtvar'"!="" jl, qui: sumweights = mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0)
 
-  if "`noisily'"=="" jl, qui: df = nothing  // yield memory
+  if `k' {
+    tempname b V 
+
+    * bootstrap
+    if 0`bs' {
+      di _n "Bootstrap replications (" as res `reps' "): " _c
+      jl, qui: rng = StableRNG(`=runiformint(0, 9007199254740992)'); ///  // chain Stata rng to Julia rng
+               coefbs = fill(zero(Float64), k);                      ///
+               Vbs = fill(zero(Float64), k, k)
+      local hasclust = "`bscluster'"!=""
+      if `hasclust' {
+        jl, qui: groups = [findall(a->a==i, df.`bscluster') for i in Set(df.`bscluster')]; ///
+                 bssize = iszero(`size') ? length(groups) : `size'
+        forvalues m=1/`reps' {
+          jl, qui: _df = df[vcat(rand(rng, groups, bssize)...),:];                                             ///
+                   _m = reg(_df, f `wtopt' `methodopt' `threadsopt', tol=`tolerance', maxiter=`iterations'); ///
+                   coefbs .+= coef(_m);                                                                      ///
+                   Vbs .+= coef(_m) .* coef(_m)'
+          if "`nodots'"=="" & !mod(`m',`dots') di cond(mod(`m',10*`dots'),".","`m'") _c
+        }
+      }
+      else {
+        jl, qui: one2N = collect(1:sizedf[1]); ///
+                 _df = similar(df);            ///
+                 bssize = iszero(`size') ? sizedf[1] : `size'
+        forvalues m=1/`reps' {
+          jl, qui: _df .= view(df,rand(rng, one2N, bssize),:);                                               ///
+                   _m = reg(_df, f `wtopt' `methodopt' `threadsopt', tol=`tolerance', maxiter=`iterations'); ///
+                   coefbs .+= coef(_m);                                                                      ///
+                   Vbs .+= coef(_m) .* coef(_m)'
+          if "`nodots'"=="" & !mod(`m',`dots') di cond(mod(`m',10*`dots'),".","`m'") _c
+        }
+      }
+      if "`nodots'"=="" di " done"
+      jl: _df = nothing;                       ///
+          Vbs .-= coefbs ./ `reps' .* coefbs'; ///
+          Vbs ./= `reps' - `="`mse'"==""';     ///
+          rand(rng, Int32)  // chain Julia rng back to Stata to advance it replicably
+      set seed `r(ans)'
+    }
+  }
+
+  if "`verbose'"=="" jl, qui: df = nothing  // yield memory
   if "`compact'"!="" {
     jl, qui: GC.gc()
     use `compactfile'
@@ -324,16 +379,14 @@ program define reghdfejl, eclass
     jl, qui: esample = nothing
   }
 
-  jl, qui: SF_scal_save("`t'", length(coef(m)))
-  if `t' {
-    tempname b V
-
-    jl, qui: SF_scal_save("`b'", coefnames(m)[1]=="(Intercept)")
-    local hascons = `b'
+  if `k' {
+    jl, qui: SF_scal_save("`t'", coefnames(m)[1]=="(Intercept)")
+    local hascons = `t'
 
     jl, qui: I = [1+`kinexog'+`hascons':`kinexog'+`hascons'+`kinstd' ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']  // cons-exog-endog -> endog-exog-cons
     jl, qui: `b' = collect(coef(m)[I]')
-    jl, qui: `V' = replace!(vcov(m)[I,I], NaN=>0.)
+    jl, qui: `V' = iszero(0`bs') ? vcov(m) : Vbs
+    jl, qui: `V' = replace!(`V'[I,I], NaN=>0.)
     jl GetMatFromMat `b'
     jl GetMatFromMat `V'
     local coefnames `instdname' `inexogname' `=cond(`hascons', "_cons", "")'
@@ -480,3 +533,4 @@ end
 * 0.4.3 Add julia.ado version check. Fix bug in posting sample size. Prevent crash on insufficient observations.
 * 0.5.0 Add gpu & other options to partialhdfejl. Document the command. Create reghdfejl_load.ado.
 * 0.5.1 Fix dropping of some non-absorbed interaction terms. Handle noconstant when no a().
+* 0.6.0 Added vce(bs).

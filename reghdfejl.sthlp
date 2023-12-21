@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.2 7dec2023}{...}
+{* *! version 0.6.0 20dec2023}{...}
 
 {title:Title}
 
@@ -41,7 +41,7 @@
 {synopthdr:reghdfejl option}
 {synoptline}
 {synopt: {cmdab:a:bsorb}({it:absvars}, [{cmdab:save:fe}])}categorical variables representing the fixed effects to be absorbed{p_end}
-{synopt: {opth vce:(reghdfejl##model_opts:vcetype)}}{it:vcetype} may be {opt un:adjusted} (default), {opt r:obust} or {opt cl:uster} {help fvvarlist} (allowing multi-way clustering){p_end}
+{synopt: {opth vce:(reghdfejl##model_opts:vcetype)}}{it:vcetype} may be {opt un:adjusted} (default), {opt r:obust}, {opt bs}/{opt boot:strap}, {opt cl:uster} {help fvvarlist} (allowing multi-way clustering){p_end}
 {synopt: {opth res:iduals(newvar)}}save regression residuals; required for postestimation "{it:predict <varname>, d}" {p_end}
 {synopt:{opt tol:erance(#)}}criterion for convergence. default is 1e-8{p_end}
 {synopt:{opt iter:ate(#)}}maximum number of iterations; default is 16,000{p_end}
@@ -70,6 +70,8 @@ cannot be of the form {it:i.y} though, only {it:#.y} (where # is a number){p_end
 {synopt:{opt replace}}overwrite any existing variables identified by {opt gen:erate()} or {opt pre:fix()}{p_end}
 {synoptline}
 {p 4 6 2}Exactly one of {opt gen:erate()} and {opt pre:fix()} must be specified.
+
+{p 4 6 2}{cmd:vce(bootstrap,} {it:bsoptions}{cmd:)} accepts the following {help bootstrap:bootstrap options}: {opt r:obust}, {opt cl:uster()}, {opt seed()}, {opt reps()}, {opt mse}, {opt size}, {opt nodots}, {opt dots()}.
 
 
 {marker description}{...}
@@ -210,6 +212,13 @@ Example: {it:reghdfejl price weight, absorb(turn trunk, savefe)}.
 {pmore}
 {opt cl:uster} {it:clustervars} estimates consistent standard errors even when the observations
 are correlated within groups. Multi-way-clustering is allowed.
+
+{pmore}
+{cmd:vce(bootstrap,} {it:bsoptions}{cmd:)}} and {cmd:vce(bs,} {it:bsoptions}{cmd:)} are synonyms. They request estimation of standard errors using the non-parametric or "pairs" 
+bootstrap. {cmd: reghdfejl ..., ... vce(bs,} {it:bsoptions}{cmd:)} should return the same results as {cmd: bs,} {it:bsoptions}{cmd:: reghdfejl ..., ...}. More precisely, the
+two should converge as the number of replications rises. But the first is faster because it avoids copying data from Stata to Julia on every replication. {it:bsoptions} 
+may include any of the following {help bootstrap:bootstrap options}: {opt r:obust}, {opt cl:uster()}, {opt seed()}, {opt reps()}, {opt mse}, {opt size}, {opt nodots}, 
+{opt dots()}.
 
 {phang}
 {cmdab:res:iduals[(}{help newvar}{cmd:})]} saves the regression residuals in a new variable. {opt res:iduals} without parenthesis saves them

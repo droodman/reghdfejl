@@ -1,4 +1,4 @@
-*! reghdfejl 0.4.3 10 December 2023
+*! reghdfejl 0.6.0 20 December 2023
 
 cap program drop reghdfejl_load
 program define reghdfejl_load
@@ -21,9 +21,10 @@ program define reghdfejl_load
     local blaslib = cond(c(os)=="MacOSX", "AppleAccelerate", "BLISBLAS")
     jl AddPkg `blaslib'
     jl AddPkg `gpulib'
+    jl AddPkg StableRNGs
     jl AddPkg FixedEffectModels, minver(1.10.2)
     jl AddPkg Vcov, minver(0.8.1)
-    jl, qui: using `blaslib', `gpulib', FixedEffectModels, Vcov
+    jl, qui: using `blaslib', `gpulib', FixedEffectModels, Vcov, StableRNGs
     global reghdfejl_loaded 1
   }
 end
