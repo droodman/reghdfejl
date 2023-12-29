@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.6.0 20dec2023}{...}
+{* *! version 0.6.0 23dec2023}{...}
 
 {title:Title}
 
@@ -71,7 +71,8 @@ cannot be of the form {it:i.y} though, only {it:#.y} (where # is a number){p_end
 {synoptline}
 {p 4 6 2}Exactly one of {opt gen:erate()} and {opt pre:fix()} must be specified.
 
-{p 4 6 2}{cmd:vce(bootstrap,} {it:bsoptions}{cmd:)} accepts the following {help bootstrap:bootstrap options}: {opt r:obust}, {opt cl:uster()}, {opt seed()}, {opt reps()}, {opt mse}, {opt size}, {opt nodots}, {opt dots()}.
+{p 4 6 2}{cmd:vce(bootstrap,} {it:bsoptions}{cmd:)} accepts these standard {help bootstrap:bootstrap options}: {opt r:obust}, {opt cl:uster(varname)}, {opt seed(#)}, {opt reps(#)}, {opt mse}, 
+{opt size(#)}. In addition it accepts a {opt proc:s()} option to accelerate the bootstrap through multitasking.
 
 
 {marker description}{...}
@@ -98,7 +99,7 @@ of another function in the Julia package.
 {pstd}
 If {cmd:reghdfejl} appears to be failing to install the needed packages,
 you can try intervening manually: start Julia outside of Stata, hit the "]" key to enter the package manager, and type
-{cmd:add <pkgname>} for each package. The needed packages are Vcov, FixedEffectModels, DataFrames, and either Metal (for
+{cmd:add <pkgname>} for each package. The needed packages are Vcov, FixedEffectModels, DataFrames, and Metal (for
 Macs) or CUDA (otherwise).
 
 {pstd}
@@ -131,7 +132,7 @@ useful when you have plenty of RAM, when the number of non-absorbed regressors i
 (for then the computational efficiency of Julia shines).
 
 {pstd}
-{cmd:reghdfejl} offers two novel features that can increase speed. The first is access to multithreading in Julia, even in 
+{cmd:reghdfejl} offers several novel features that can increase speed. The first is access to multithreading in Julia, even in 
 flavors of Stata that do not offer multiprocessing. The {opt threads(#)}
 option pertains to this feature. But it can only {it:reduce} the number of CPU threads Julia uses. The default number--and the 
 maximum--is set by the {browse "https://docs.julialang.org/en/v1/manual/multi-threading/":system environment variable JULIA_NUM_THREADS}. It is 
@@ -139,7 +140,13 @@ possible for the default to be too high as well as too low. If you set it high, 
 {help jl##threads:help jl} for more on determining and controlling the number of threads.
 
 {pstd}
-The other novel feature is access to GPU-based computation. The {cmd:gpu} specifies the use of NVIDIA or Apple Silicon 
+In a similar vein, {cmd:reghdfejl} offers accelerated bootstrapping for the purpose of computing standard errors, via the {cmd:bs}/{cmd:bootstrap}
+suboption of the {opt vce()} option. The results should be the same, asymptotically, as if one prefixes a {cmd:reghdfejl} command line with
+Stata's {cmd:bootstrap} command. But they should come much faster because copying of data between Stata and Julia is minimized, and multiple
+copies of Julia are launched for parallelization.
+
+{pstd}
+A final new feature is access to GPU-based computation. The {cmd:gpu} specifies the use of NVIDIA or Apple Silicon 
 GPUs for computation. Typically this modestly increases speed.
 
 {pstd}
@@ -163,7 +170,7 @@ if the destination variables already exist, unless {cmd:replace} is also specifi
 {synopt:{it:varname}}categorical variable to be absorbed{p_end}
 {synopt:{cmd:i.}{it:varname}}categorical variable to be absorbed (same as above; the {cmd:i.} prefix is always implicit){p_end}
 {synopt:{cmd:i.}{it:var1}{cmd:#i.}{it:var2}}absorb the interactions of multiple categorical variables{p_end}
-{synopt:{cmd:i.}{it:var1}{cmd:#}{cmd:c.}{it:var2}}absorb heterogeneous slopes, where {it:var2} has a different slope estimate depending on {it:var1}. Use carefully (see below!){p_end}
+{synopt:{cmd:i.}{it:var1}{cmd:#}{cmd:c.}{it:var2}}absorb heterogeneous slopes, where {it:var2} has a different slope estimate depending on {it:var1}. Use carefully (see below)!{p_end}
 {synopt:{it:var1}{cmd:##}{cmd:c.}{it:var2}}absorb heterogenous intercepts and slopes. Equivalent to "{cmd:i.}{it:var1} {cmd:i.}{it:var1}{cmd:#}{cmd:c.}{it:var2}", but {it:much} faster{p_end}
 {synopt:{it:var1}{cmd:##c.(}{it:var2 var3}{cmd:)}}multiple heterogeneous slopes are allowed together. Alternative syntax: {it:var1}{cmd:##(c.}{it:var2} {cmd:c.}{it:var3}{cmd:)}{p_end}
 {synopt:{it:v1}{cmd:#}{it:v2}{cmd:#}{it:v3}{cmd:##c.(}{it:v4 v5}{cmd:)}}factor operators can be combined{p_end}
@@ -215,10 +222,20 @@ are correlated within groups. Multi-way-clustering is allowed.
 
 {pmore}
 {cmd:vce(bootstrap,} {it:bsoptions}{cmd:)}} and {cmd:vce(bs,} {it:bsoptions}{cmd:)} are synonyms. They request estimation of standard errors using the non-parametric or "pairs" 
-bootstrap. {cmd: reghdfejl ..., ... vce(bs,} {it:bsoptions}{cmd:)} should return the same results as {cmd: bs,} {it:bsoptions}{cmd:: reghdfejl ..., ...}. More precisely, the
-two should converge as the number of replications rises. But the first is faster because it avoids copying data from Stata to Julia on every replication. {it:bsoptions} 
-may include any of the following {help bootstrap:bootstrap options}: {opt r:obust}, {opt cl:uster()}, {opt seed()}, {opt reps()}, {opt mse}, {opt size}, {opt nodots}, 
-{opt dots()}.
+bootstrap. In expectation, {cmd: reghdfejl ..., ... vce(bs,} {it:bsoptions}{cmd:)} should return the same results as {cmd: bs,} {it:bsoptions}{cmd:: reghdfejl ..., ...}. But the 
+first is faster because it avoids copying data from Stata to Julia on every replication and can exploit mulitasking. {it:bsoptions} 
+may include any of the following suboptions: {opt r:obust}, {opt cl:uster(varname)}, {opt seed(#)}, {opt reps(#)}, {opt mse}, {opt size(#)}, and 
+{opt proc:s(#)}. All but the last are standard {help bootstrap:bootstrap options}. The last instructs {cmd:reghdfejl} to launch several
+copies of Julia in order to run the bootstrap in parallel. The {opt proc:s(#)} suboption is semantically distinct from {cmd:reghdfejl}'s {opt threads()}
+option. The latter triggers low-level multitasking: the Julia package FixedEffectModels.jl spreads certain loops across multiple threads. The former instead runs 
+multiple copies of Julia, each of which loads and runs FixedEffectModels.jl, on just one thread. This set-up is efficient for "embarrassingly parallel"
+tasks such as bootstrapping. While the options are implemented in different ways, the principles governing the optimal number to choose are the 
+same. See {help jl##threads:help jl}.
+
+{pmore}
+Note that while setting the {opt seed(#)} suboption allows for exact reproducibility of results, even with the same seed, changing the {opt proc:s(#)}
+suboption will (slightly) change results. The latter affects how the bootstrap is distributed across the Julia processes, each with its own
+psuedorandom number stream.
 
 {phang}
 {cmdab:res:iduals[(}{help newvar}{cmd:})]} saves the regression residuals in a new variable. {opt res:iduals} without parenthesis saves them
@@ -305,6 +322,7 @@ the resulting variable will always be of type {it:double}.{p_end}
 {phang}. {stata webuse nlswork}{p_end}
 {phang}. {stata reghdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(idcode year)}{p_end}
 {phang}. {stata reghdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(year occ_code) cluster(year occ_code)}{p_end}
+{phang}. {stata reghdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(year occ_code) vce(bs, cluster(occ_code) reps(1000) seed(42) procs(4))}{p_end}
 
 {phang}. {stata partialhdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(year occ_code) prefix(_) replace}{p_end}
 {phang}. {stata reghdfejl _ln_wage  _age _ttl_exp _tenure _not_smsa _south, cluster(year occ_code) nocons}  // same point estimates as in previous regression{p_end}
@@ -482,9 +500,8 @@ Email: {browse "mailto:david@davidroodman.com":david@davidroodman.com}
 {pstd}
 More so than for most packages, in writing this one, the author stands on the shoulders of giants. {cmd:reghdfejl} is merely a wrapper
 for {browse "https://www.matthieugomez.com/":Matthieu Gomez}'s {browse "https://github.com/FixedEffects/FixedEffectModels.jl":FixedEfectModels.jl},
-which is itself a Julia implementation of {browse "http://scorreia.com/":Sergio Correia}'s path-breaking {help reghdfe}. {cmd:reghdfejl}'s code for
-postestimation functionality is copied from {cmd:reghdfe}, as are parts of this help file. The Julia programming language is a free, open-source project
-with many contributors.
+which is itself an implementation---with important innovations---of {browse "http://scorreia.com/":Sergio Correia}'s path-breaking {help reghdfe}. {cmd:reghdfejl}'s code for
+postestimation functionality is copied from {cmd:reghdfe}, as are parts of this help file. The Julia programming language is a free, open-source project.
 
 {pstd}
 

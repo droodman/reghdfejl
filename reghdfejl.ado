@@ -143,11 +143,11 @@ program define reghdfejl, eclass
     macro shift
     if `bs' {
       local 0 `*'
-      syntax, [CLuster(string) Reps(integer 50) mse seed(string) NODOTS dots(integer 1) SIze(integer 0) PROCs(integer 1)]
+      syntax, [CLuster(string) Reps(integer 50) mse seed(string) SIze(integer 0) PROCs(integer 1)]
       _assert `reps'>1, msg("reps() must be an integer greater than 1") rc(198)
-      _assert `dots'>0, msg("dots() must be an integer greater than 0") rc(198)
-      _assert `size'>=0, msg("size() must be an integer greater than 0") rc(198)
-      _assert `procs'>=0, msg("procs() must be an integer greater than 0") rc(198)
+      _assert `size'>=0, msg("size() must be a positive integer") rc(198)
+      _assert `procs'>=0, msg("procs() must be a positive integer") rc(198)
+      if `procs'==0 local procs 1
       local bscluster `cluster'
       if `"`seed'"'!="" set seed `seed'
     }
@@ -302,44 +302,49 @@ program define reghdfejl, eclass
   if "`wtvar'"!="" jl, qui: sumweights = mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0)
 
   if `k' {
-    tempname b V 
+    tempname b V
 
     * bootstrap
     if 0`bs' {
-      di _n "Bootstrap replications (" as res `reps' "): " _c
-      jl, qui: rng = StableRNG(`=runiformint(0, 9007199254740992)'); ///  // chain Stata rng to Julia rng
-               coefbs = fill(zero(Float64), k);                      ///
-               Vbs = fill(zero(Float64), k, k)
       local hasclust = "`bscluster'"!=""
-      if `hasclust' {
-        jl, qui: groups = [findall(a->a==i, df.`bscluster') for i in Set(df.`bscluster')]; ///
-                 bssize = iszero(`size') ? length(groups) : `size'
-        forvalues m=1/`reps' {
-          jl, qui: _df = df[vcat(rand(rng, groups, bssize)...),:];                                             ///
-                   _m = reg(_df, f `wtopt' `methodopt' `threadsopt', tol=`tolerance', maxiter=`iterations'); ///
-                   coefbs .+= coef(_m);                                                                      ///
-                   Vbs .+= coef(_m) .* coef(_m)'
-          if "`nodots'"=="" & !mod(`m',`dots') di cond(mod(`m',10*`dots'),".","`m'") _c
-        }
+      tempname bswt
+
+      qui jl: nworkers()
+      if `procs' != `r(ans)' {
+        jl, qui: rmprocs(procs())
+        if `procs'>1 jl, qui:  addprocs(`procs', exeflags="-t1");  /* single-threaded workers */                                                                  ///
+                               @everywhere using `=cond(c(os)=="MacOSX", "Metal, AppleAccelerate", "CUDA, BLISBLAS")', StableRNGs, DataFrames, FixedEffectModels, SharedArrays
       }
-      else {
-        jl, qui: one2N = collect(1:sizedf[1]); ///
-                 _df = similar(df);            ///
-                 bssize = iszero(`size') ? sizedf[1] : `size'
-        forvalues m=1/`reps' {
-          jl, qui: _df .= view(df,rand(rng, one2N, bssize),:);                                               ///
-                   _m = reg(_df, f `wtopt' `methodopt' `threadsopt', tol=`tolerance', maxiter=`iterations'); ///
-                   coefbs .+= coef(_m);                                                                      ///
-                   Vbs .+= coef(_m) .* coef(_m)'
-          if "`nodots'"=="" & !mod(`m',`dots') di cond(mod(`m',10*`dots'),".","`m'") _c
-        }
-      }
-      if "`nodots'"=="" di " done"
-      jl: _df = nothing;                       ///
-          Vbs .-= coefbs ./ `reps' .* coefbs'; ///
-          Vbs ./= `reps' - `="`mse'"==""';     ///
-          rand(rng, Int32)  // chain Julia rng back to Stata to advance it replicably
-      set seed `r(ans)'
+
+      jl, qui: rngs = [StableRNG(`=runiformint(0, 1e6)' * i + 42) for i in 1:maximum(workers())]  // different, deterministic seeds for each worker
+
+      if `hasclust' ///
+        jl, qui: s = Set(df.`bscluster');                                                                               ///
+                 Nclust = length(s);                                                                                    ///
+                 _id = SharedVector(getindex.(Ref(Dict(zip(s, 1:Nclust))), df.`bscluster')) /* ordinalize cluster id */ 
+      else
+        jl, qui: Nclust = size(df,1);                                                                                   ///
+                 _id = Colon()
+       
+      jl, qui: bssize = `=cond(0`size',"`size'","Nclust")';                                                             ///
+               bsweights = Vector{Int}(undef, Nclust);                                                                  ///
+               @everywhere function reghdfejlbs(bsweights, bssize, rngs, Nclust, df, _id, f)                            ///
+                 fill!(bsweights, 0);                                                                                   ///
+                 rng = rngs[myid()];                                                                                    ///
+                 @inbounds for i in 1:bssize  /* bs draws */                                                            ///
+                   bsweights[rand(rng, 1:Nclust)] += 1                                                                  ///
+                 end;                                                                                                   ///
+                 df.`bswt' = bsweights[_id];                                                                            ///
+                 `=cond("`wtopt'"!="", "df.`bswt' .*= df.`wtvar';", "")'                                                ///
+                 b = coef(reg(df, f, weights=:`bswt' `methodopt' `threadsopt', tol=`tolerance', maxiter=`iterations')); ///
+                 [b, b*b']                                                                                              ///
+               end;                                                                                                     ///
+               retval = @distributed (+) for m in 1:`reps'                                                              ///
+                 reghdfejlbs(bsweights, bssize, rngs, Nclust, df, _id, f)                                               ///
+               end;                                                                                                     ///
+               Vbs = retval[2];                                                                                         ///
+               Vbs .-= retval[1] ./ `reps' .* retval[1]';                                                               ///
+               Vbs ./= `reps' - `="`mse'"==""'
     }
   }
 
