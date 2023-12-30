@@ -88,7 +88,7 @@ program define reghdfejl, eclass
   }
 
 	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
-                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact VERBose noCONStant *]
+                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact VERBose noCONStant KEEPSINgletons *]
   local sample = "`sample'"==""
 
   _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
@@ -102,6 +102,7 @@ program define reghdfejl, eclass
   if "`gpu'"!="" local methodopt , method = :`gpulib'
 
   if `threads' local threadsopt , nthreads = `threads'
+  if "`keepsingletons'"!="" local singletonopt , drop_singletons = false
   
   reghdfejl_load
 
@@ -148,7 +149,15 @@ program define reghdfejl, eclass
       _assert `size'>=0, msg("size() must be a positive integer") rc(198)
       _assert `procs'>=0, msg("procs() must be a positive integer") rc(198)
       if `procs'==0 local procs 1
-      local bscluster `cluster'
+
+      cap confirm numeric var `cluster'
+      if _rc {
+        tempvar t
+        qui egen long `t' = group(`cluster')
+        local bslcuster `t'
+      }
+      else local bscluster `cluster'
+
       if `"`seed'"'!="" set seed `seed'
     }
     else if "`cluster'"!="" local cluster `*'
@@ -163,8 +172,9 @@ program define reghdfejl, eclass
     local cluster: subinstr local cluster " # # " "#", all
     local cluster: subinstr local cluster " # " "#", all
     foreach term in `cluster' {
-      if strpos(`"`term'"', "#") {  // allow clustering on interactions
-        local term: subinstr local term "#" " ", all
+      cap confirm numeric var `term'
+      if _rc {  // allow clustering on interactions
+        if strpos(`"`term'"', "#") local term: subinstr local term "#" " ", all
         tempvar t
         qui egen long `t' = group(`term')
         local _cluster `_cluster' `t'
@@ -291,10 +301,10 @@ program define reghdfejl, eclass
   * Estimate!
   jl, qui: f = @formula(`dep' ~ `inexog' `ivarg' `feterms')
   if "`verbose'"!="" {
-    di "`reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance', maxiter=`iterations')'"
-    jl: m = reg(df, f `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance', maxiter=`iterations')
+    di "`reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt', tol=`tolerance', maxiter=`iterations')'"
+    jl: m = reg(df, f `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt', tol=`tolerance', maxiter=`iterations')
   }
-  else jl, qui: m = reg(df, f `wtopt' `vcovopt' `methodopt' `threadsopt' `saveopt', tol=`tolerance', maxiter=`iterations')
+  else jl, qui: m = reg(df, f `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt', tol=`tolerance', maxiter=`iterations')
 
   tempname k
   jl, qui: k = length(coef(m)); SF_scal_save("`k'", k)
@@ -471,7 +481,7 @@ program define reghdfejl, eclass
     }
   }
 
-  ereturn scalar drop_singletons = e(num_singletons) > 0
+  ereturn scalar drop_singletons = "`keepsingletons'"==""
   ereturn scalar report_constant = `hascons'
   ereturn local depvar `depname'
   ereturn local indepvars `inexogname' `instdname'
@@ -502,10 +512,12 @@ program define Display
   syntax [, Level(real `c(level)') noHEADer notable *]
   _get_diopts diopts, `options'
 
+  if e(keep_singletons) di as err `"WARNING: Singleton observations not dropped; statistical significance is biased {browse "http://scorreia.com/reghdfe/nested_within_cluster.pdf":(link)}"'
+  if e(num_singletons) di as txt `"(dropped `e(num_singletons)' {browse "http://scorreia.com/research/singletons.pdf":singleton observations})"'
+  di as txt `"({browse "http://scorreia.com/research/hdfe.pdf":MWFE estimator} converged in `e(ic)' iterations)"'
+  di
+
   if "`header'"=="" {
-    if e(drop_singletons) di as txt `"(dropped `e(num_singletons)' {browse "http://scorreia.com/research/singletons.pdf":singleton observations})"'
-    di as txt `"({browse "http://scorreia.com/research/hdfe.pdf":MWFE estimator} converged in `e(ic)' iterations)"'
-    di
     di as txt "`e(title)' " _col(51) "Number of obs" _col(67) "= " as res %10.0fc e(N)
     di as txt "`e(title2)'" _col(51) "F(" as res %4.0f e(df_m) as txt "," as res %7.0f e(df_r)-e(report_constant) as txt ")" _col(67) "= " as res %10.2f e(F)
     di as txt "`e(title3)'" _col(51) "Prob > F"      _col(67) "= " as res %10.4f Ftail(e(df_m), e(df_r)-e(report_constant), e(F))

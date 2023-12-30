@@ -82,7 +82,10 @@ program define partialhdfejl
     qui keep if `touse'
   }
 
-  jl PutVarsToDFNoMissing `varlist' `absorbvars' `wtvar' if `touse'
+  local vars `varlist' `absorbvars' `wtvar'
+  local vars: list uniq vars
+
+  jl PutVarsToDFNoMissing `vars' if `touse'
   qui jl: size(df,1)
   _assert `r(ans)', rc(2001) msg(insufficient observations)
 
