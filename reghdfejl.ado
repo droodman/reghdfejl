@@ -332,7 +332,7 @@ program define reghdfejl, eclass
         jl, qui: s = Set(df.`bscluster');                                                                               ///
                  Nclust = length(s);                                                                                    ///
                  _id = SharedVector(getindex.(Ref(Dict(zip(s, 1:Nclust))), df.`bscluster')) /* ordinalize cluster id */ 
-      else
+      else                                                                                                              ///
         jl, qui: Nclust = size(df,1);                                                                                   ///
                  _id = Colon()
        
@@ -365,12 +365,12 @@ program define reghdfejl, eclass
   }
 
   if "`savefe'`namedfe'" != "" {
-    jl, qui: FEs = fe(m); SF_macro_save("reghdfejl_FEnames", join(names(FEs), " "))
+    jl, qui: FEs = fe(m); rename!(FEs, "FE" .* string.(1:`N_hdfe'))
     forvalues a = 1/`N_hdfe' {
       local fename: word `a' of `fenames'
       if "`savefe'`fename'"!="" {
         if "`fename"=="" local fename __hdfe`a'__
-        jl GetVarsFromDF `fename' if `touse', source(FEs) col(`:word `a' of $reghdfejl_FEnames')
+        jl GetVarsFromDF `fename' if `touse', source(FEs) col(FE`a')
         label var `fename' "[FE] `:word `a' of `absorb''"
       }
     }
@@ -458,7 +458,20 @@ program define reghdfejl, eclass
     ereturn scalar sumweights = `t'
   }
 
-  if "`cluster'`robust'"=="" ereturn local vce ols
+  if 0`bs' {
+    ereturn local vce bootstrap
+    ereturn local vcetype Bootstrap
+    jl, qui: SF_scal_save("`t'", Nclust)
+    ereturn scalar N_clust = `t'
+    ereturn scalar N_clust1 = `t'
+    if "`bscluster'"!="" {
+      ereturn local cluster `bscluster'
+      ereturn local clustvar1 `bscluster'
+      ereturn local title3 Statistics cluster-robust
+    }
+    else ereturn local title3 Statistics robust to heteroskedasticity
+  }
+  else if "`cluster'`robust'"=="" ereturn local vce ols
   else {
     ereturn local vcetype Robust
     if "`cluster'"=="" {
@@ -507,12 +520,13 @@ program define reghdfejl, eclass
   Display, `diopts' level(`level') `noheader' `notable'
 end
 
+cap program drop Display
 program define Display
   version 16
   syntax [, Level(real `c(level)') noHEADer notable *]
   _get_diopts diopts, `options'
 
-  if e(keep_singletons) di as err `"WARNING: Singleton observations not dropped; statistical significance is biased {browse "http://scorreia.com/reghdfe/nested_within_cluster.pdf":(link)}"'
+  if !e(drop_singletons) di as err `"WARNING: Singleton observations not dropped; statistical significance is biased {browse "http://scorreia.com/reghdfe/nested_within_cluster.pdf":(link)}"'
   if e(num_singletons) di as txt `"(dropped `e(num_singletons)' {browse "http://scorreia.com/research/singletons.pdf":singleton observations})"'
   di as txt `"({browse "http://scorreia.com/research/hdfe.pdf":MWFE estimator} converged in `e(ic)' iterations)"'
   di
@@ -533,6 +547,11 @@ program define Display
       di `line`i''
     }
     di
+  }
+
+  if "`e(vce)'"=="bootstrap" & "`e(cluster)'"!="" {
+    local N_clust = strtrim(string(e(N_clust),"%10.0gc"))
+    di _col(`=50-strlen("`N_clust'`e(cluster)'")') as txt "(Replications based on " as res "`N_clust'" as txt " clusters in " as res e(cluster) as txt ")"
   }
 
   if "`table'"=="" ereturn display, level(`level') `diopts'
