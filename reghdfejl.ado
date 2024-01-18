@@ -521,19 +521,18 @@ program define reghdfejl, eclass
   Display, `diopts' level(`level') `noheader' `notable'
 end
 
-* Expand nested expression like a#c.(b c) without using fvunab, which apparently scans all vars for their levels, taking time
+* Expand nested expression like absorb(a#c.(b c)) without using fvunab, which apparently scans all vars for their levels, taking time
 program define ExpandAbsorb, rclass
   while `"`0'"' != "" {
     gettoken car 0: 0, bind
     if regexm("`car'", "([^\(]*)\((.*)\)([^\)]*)") {
       local prefix = regexcapture(1)
       local suffix = regexcapture(3)
-      Parse `=regexcapture(2)'
+      ExpandAbsorb `=regexcapture(2)'
       mata st_local("car", invtokens("`prefix'" :+ tokens("`r(exp)'") :+ "`suffix'"))
     }
-    local exp `exp' `car'
+    return local exp `return(exp)' `car'
   }
-  return local exp `exp'
 end
 
 program define Display
