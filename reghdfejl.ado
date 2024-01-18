@@ -206,7 +206,8 @@ program define reghdfejl, eclass
   _assert `kdep'==1, msg("Multiple dependent variables specified.") rc(198) 
 
   if `"`absorb'"' != "" {
-    local 0 `absorb'
+    ExpandAbsorb `absorb'
+    local 0 `r(exp)'
     syntax anything(equalok), [SAVEfe]
     tokenize `anything', parse(" =")
 
@@ -520,7 +521,21 @@ program define reghdfejl, eclass
   Display, `diopts' level(`level') `noheader' `notable'
 end
 
-cap program drop Display
+* Expand nested expression like a#c.(b c) without using fvunab, which apparently scans all vars for their levels, taking time
+program define ExpandAbsorb, rclass
+  while `"`0'"' != "" {
+    gettoken car 0: 0, bind
+    if regexm("`car'", "([^\(]*)\((.*)\)([^\)]*)") {
+      local prefix = regexcapture(1)
+      local suffix = regexcapture(3)
+      Parse `=regexcapture(2)'
+      mata st_local("car", invtokens("`prefix'" :+ tokens("`r(exp)'") :+ "`suffix'"))
+    }
+    local exp `exp' `car'
+  }
+  return local exp `exp'
+end
+
 program define Display
   version 16
   syntax [, Level(real `c(level)') noHEADer notable *]
