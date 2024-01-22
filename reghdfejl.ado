@@ -36,7 +36,7 @@ program define reghdfejl, eclass
 		exit 0
 	}
 
-  local cmdline `0'
+  local cmdline: copy local 0
 
   if `"`0'"'=="mask" {
     cap findfile reghdfe.ado
@@ -112,14 +112,14 @@ program define reghdfejl, eclass
       tempname wtvar
       gen double `wtvar' = `exp' if `touse'
     }
-    else local wtvar `exp'
+    else local wtvar: copy local exp
     local wtopt , weights = :`wtvar'
     local haspw = "`weight'"=="pweight"
   }
 
   fvunab anything: `anything'
   tokenize `anything'
-  local depname `1'
+  local depname: copy local 1
   macro shift
 
   local hasiv = strpos(`"`*'"', "=")
@@ -154,9 +154,9 @@ program define reghdfejl, eclass
       if _rc {
         tempvar t
         qui egen long `t' = group(`cluster')
-        local bslcuster `t'
+        local bslcuster: copy local t
       }
-      else local bscluster `cluster'
+      else local bscluster: copy local cluster
 
       if `"`seed'"'!="" set seed `seed'
     }
@@ -194,9 +194,12 @@ program define reghdfejl, eclass
         _ms_parse_parts `var'
         if !r(omit) {
           local `varset'name ``varset'name' `var'
-          tempvar t
-          qui gen double `t' = `var' if `touse'
-          local `varset' ``varset'' `t'
+          if "`r(op)'"=="" local `varset' ``varset'' `var'
+          else {
+            tempvar t
+            qui gen double `t' = `var' if `touse'
+            local `varset' ``varset'' `t'
+          }
         }
       }
     }
@@ -222,12 +225,12 @@ program define reghdfejl, eclass
       local feterms `feterms' `1'
       macro shift
     }
-    local absorb `feterms'
+    local absorb: copy local feterms
     local N_hdfe: word count `feterms'
 
     local feterms i.`: subinstr local feterms " " " i.", all'
 
-    local absorbvars `feterms'
+    local absorbvars: copy local feterms
     local feterms: subinstr local feterms "##c." ")*(", all
     local feterms: subinstr local feterms "#c." ")&(", all
     local feterms: subinstr local feterms "##i." ")*fe(", all
@@ -269,7 +272,7 @@ program define reghdfejl, eclass
   else {
     local 0, `_options'
     syntax, [RESIDuals(name) *]
-    local _options `options'
+    local _options: copy local options
   }
 
   if `"`_options'"' != "" di as inp `"`_options'"' as txt " ignored" _n
@@ -300,12 +303,15 @@ program define reghdfejl, eclass
   }
 
   * Estimate!
-  jl, qui: f = @formula(`dep' ~ `inexog' `ivarg' `feterms')
+  local flinejl f = @formula(`dep' ~ `inexog' `ivarg' `feterms')
+  local cmdlinejl reg(df, f `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt', tol=`tolerance', maxiter=`iterations')
+  jl, qui: `flinejl'
   if "`verbose'"!="" {
-    di "`reg(df, @formula(`dep' ~ `inexog' `ivarg' `feterms') `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt', tol=`tolerance', maxiter=`iterations')'"
-    jl: m = reg(df, f `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt', tol=`tolerance', maxiter=`iterations')
+    di `"`flinejl'"'
+    di `"`cmdlinejl'"'
+    jl: m = `cmdlinejl'
   }
-  else jl, qui: m = reg(df, f `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt', tol=`tolerance', maxiter=`iterations')
+  else jl, qui: m = `cmdlinejl'
 
   tempname k
   jl, qui: k = length(coef(m)); SF_scal_save("`k'", k)
@@ -466,8 +472,8 @@ program define reghdfejl, eclass
     ereturn scalar N_clust = `t'
     ereturn scalar N_clust1 = `t'
     if "`bscluster'"!="" {
-      ereturn local cluster `bscluster'
-      ereturn local clustvar1 `bscluster'
+      ereturn local cluster: copy local bscluster
+      ereturn local clustvar1: copy local bscluster
       ereturn local title3 Statistics cluster-robust
     }
     else ereturn local title3 Statistics robust to heteroskedasticity
@@ -481,11 +487,11 @@ program define reghdfejl, eclass
     }
     else {
       ereturn local vce cluster
-      ereturn local clustvar `cluster'
+      ereturn local clustvar: copy local cluster
       ereturn scalar N_clustervars = `:word count `cluster''
       tokenize `cluster'
       forvalues i=1/`e(N_clustervars)' {
-        ereturn local clustvar`i' ``i''
+        ereturn local clustvar`i': copy local `i'
         jl, qui: SF_scal_save("`t'", m.nclusters[`i'])
         ereturn scalar N_clust`i' = `t'
       }
@@ -497,25 +503,27 @@ program define reghdfejl, eclass
 
   ereturn scalar drop_singletons = "`keepsingletons'"==""
   ereturn scalar report_constant = `hascons'
-  ereturn local depvar `depname'
+  ereturn local depvar: copy local depname
   ereturn local indepvars `inexogname' `instdname'
-  ereturn local resid `residuals'
+  ereturn local resid: copy local residuals
 
   if `hasiv' {
     ereturn local model iv
-    ereturn local inexog `inexogname'
-    ereturn local instd `instdname'
-    ereturn local insts `instsname'
+    ereturn local inexog: copy local inexogname
+    ereturn local instd: copy local instdname
+    ereturn local insts: copy local instsname
   }
   else ereturn local model ols
 
   ereturn local title HDFE `=cond(`hasiv', "2SLS", "linear")' regression with Julia
   if 0`N_hdfe' ereturn local title2 Absorbing `N_hdfe' HDFE `=plural(0`N_hdfe', "group")'
-  ereturn local absvars `absorb'
+  ereturn local absvars: copy local absorb
   ereturn local marginsnotok Residuals SCore
   ereturn local predict reghdfejl_p
   ereturn local estat_cmd reghdfejl_estat
   ereturn local cmdline reghdfejl `cmdline'
+  ereturn local flinejl: copy local flinejl
+  ereturn local cmdlinejl: copy local cmdlinejl
   ereturn local cmd reghdfejl
 
   Display, `diopts' level(`level') `noheader' `notable'
@@ -580,7 +588,7 @@ end
 * 0.4.0 Added mask and unmask
 * 0.4.1 Handle varlists with -/?/*/~
 * 0.4.2 Set version minima for some packages
-* 0.4.3 Add julia.ado version check. Fix bug in posting sample size. Prevent crash on insufficient observations.
-* 0.5.0 Add gpu & other options to partialhdfejl. Document the command. Create reghdfejl_load.ado.
-* 0.5.1 Fix dropping of some non-absorbed interaction terms. Handle noconstant when no a().
-* 0.6.0 Added vce(bs).
+* 0.4.3 Add julia.ado version check. Fix bug in posting sample size. Prevent crash on insufficient observations
+* 0.5.0 Add gpu & other options to partialhdfejl. Document the command. Create reghdfejl_load.ado
+* 0.5.1 Fix dropping of some non-absorbed interaction terms. Handle noconstant when no a()
+* 0.6.0 Added vce(bs)
