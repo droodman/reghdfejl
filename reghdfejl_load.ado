@@ -2,7 +2,7 @@
 
 cap program drop reghdfejl_load
 program define reghdfejl_load
-  local JLVERSION 0.8.0
+  local JLVERSION 0.9.0
 
   if `"$reghdfejl_loaded"'=="" {
     cap jl version
