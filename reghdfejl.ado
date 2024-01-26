@@ -88,7 +88,7 @@ program define reghdfejl, eclass
   }
 
 	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
-                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact VERBose noCONStant KEEPSINgletons *]
+                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact VERBose INTERruptible noCONStant KEEPSINgletons *]
   local sample = "`sample'"==""
 
   _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
@@ -309,9 +309,9 @@ program define reghdfejl, eclass
   if "`verbose'"!="" {
     di `"`flinejl'"'
     di `"`cmdlinejl'"'
-    jl: m = `cmdlinejl'
+    jl, `interruptible': m = `cmdlinejl'
   }
-  else jl, qui: m = `cmdlinejl'
+  else jl, qui `interruptible': m = `cmdlinejl'
 
   tempname k
   jl, qui: k = length(coef(m)); SF_scal_save("`k'", k)

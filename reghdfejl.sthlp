@@ -49,6 +49,7 @@
 {synopt:{opt compact}}temporarily saves all data to disk in order to free memory{p_end}
 {synopt:{opt threads(#)}}number of CPU threads Julia should use{p_end}
 {synopt:{opt gpu}}use NVIDIA or Apple Silicon GPU{p_end}
+{synopt:{opt inter:ruptible}}At small speed cost, allow Ctrl-Break or the like to stop estimation{p_end}
 {synopt:{opt l:evel(#)}}set confidence level; default is normally 95{p_end}
 {synopt:{it:display options}}{help ml##display_options:standard options} governing results display{p_end}
 {synoptline}
@@ -68,6 +69,7 @@ cannot be of the form {it:i.y} though, only {it:#.y} (where # is a number){p_end
 {synopt:{opt gen:erate(varlist)}}names for partialled-out results{p_end}
 {synopt:{opt pre:fix(string)}}prefix stub for partialled-out results{p_end}
 {synopt:{opt replace}}overwrite any existing variables identified by {opt gen:erate()} or {opt pre:fix()}{p_end}
+{synopt:{opt inter:ruptible}}At small speed cost, allow Ctrl-Break or the like to stop estimation{p_end}
 {synoptline}
 {p 4 6 2}Exactly one of {opt gen:erate()} and {opt pre:fix()} must be specified.
 
@@ -338,7 +340,6 @@ the resulting variable will always be of type {it:double}.{p_end}
 {synopt:{cmd:e(N)}}number of observations{p_end}
 {synopt:{cmd:e(num_singletons)}}number of singleton observations{p_end}
 {synopt:{cmd:e(N_full)}}number of observations including singletons{p_end}
-
 {synopt:{cmd:e(N_hdfe)}}number of absorbed fixed-effects{p_end}
 {synopt:{cmd:e(tss)}}total sum of squares{p_end}
 {synopt:{cmd:e(tss)}}total sum of squares after partialling-out{p_end}
@@ -355,13 +356,10 @@ the resulting variable will always be of type {it:double}.{p_end}
 {synopt:{cmd:e(F)}}F statistic{p_end}
 {synopt:{cmd:e(rank)}}rank of {cmd:e(V)}{p_end}
 {synopt:{cmd:e(N_clustervars)}}number of cluster variables{p_end}
-        
 {synopt:{cmd:e(N_clust}#{cmd:)}}number of clusters for the #th cluster variable{p_end}
 {synopt:{cmd:e(N_clust)}}number of clusters; minimum of {it:e(clust#)}{p_end}
-
 {synopt:{cmd:e(df_m)}}model degrees of freedom{p_end}
 {synopt:{cmd:e(df_r)}}residual degrees of freedom{p_end}
-
 {synopt:{cmd:e(sumweights)}}sum of weights{p_end}
 {synopt:{cmd:e(ic)}}number of iterations{p_end}
 {synopt:{cmd:e(converged)}}{cmd:1} if converged, {cmd:0} otherwise{p_end}
@@ -385,6 +383,8 @@ the resulting variable will always be of type {it:double}.{p_end}
 {synopt:{cmd:e(marginsnotok)}}predictions not allowed by {cmd:margins}{p_end}
 {synopt:{cmd:e(title)}}title in estimation output{p_end}
 {synopt:{cmd:e(title2)}}subtitle in estimation output, indicating how many FEs were being absorbed{p_end}
+{synopt:{cmd:e(flinejl)}}Julia command line used to define model formula{p_end}
+{synopt:{cmd:e(cmdlinejl)}}Julia command line used to fit model{p_end}
 
 {synoptset 24 tabbed}{...}
 {syntab:Matrices}

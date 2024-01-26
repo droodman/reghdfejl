@@ -1,7 +1,7 @@
 // Perform HDFE partialling in a common sample
-cap program drop partialhdfejl
+
 program define partialhdfejl
-  syntax varlist [if] [in] [aw pw fw iw/], Absorb(string) [GENerate(string) PREfix(string) replace ITerations(integer 16000) gpu TOLerance(real 1e-8) compact]
+  syntax varlist [if] [in] [aw pw fw iw/], Absorb(string) [GENerate(string) PREfix(string) replace ITerations(integer 16000) gpu TOLerance(real 1e-8) compact INTERruptible]
 
   _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
   _assert `tolerance'>0, msg("{cmdab:tol:erance()} must be positive.") rc(198)
@@ -91,7 +91,7 @@ program define partialhdfejl
 
   if "`compact'" !="" drop _all
 
-  jl, qui: p = partial_out(df, @formula(`:subinstr local varlist " " " + ", all' ~ 1 `feterms') `wtopt', tol=`tolerance', maxiter=`iterations' `methodopt')
+  jl, qui `interruptible': p = partial_out(df, @formula(`:subinstr local varlist " " " + ", all' ~ 1 `feterms') `wtopt', tol=`tolerance', maxiter=`iterations' `methodopt')
   
   if "`compact'"!="" {
     jl, qui: GC.gc()
