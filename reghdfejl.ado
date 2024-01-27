@@ -1,8 +1,8 @@
-*! reghdfejl 0.6.0 20 December 2023
+*! reghdfejl 0.6.1 26 January 2024
 
 // The MIT License (MIT)
 //
-// Copyright (c) 2023 David Roodman
+// Copyright (c) 2023-24 David Roodman
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -592,3 +592,4 @@ end
 * 0.5.0 Add gpu & other options to partialhdfejl. Document the command. Create reghdfejl_load.ado
 * 0.5.1 Fix dropping of some non-absorbed interaction terms. Handle noconstant when no a()
 * 0.6.0 Added vce(bs)
+* 0.6.1 Bug fixes. Added interruptible option.
