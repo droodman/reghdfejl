@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.6.0 23dec2023}{...}
+{* *! version 0.6.2 16feb2024}{...}
 
 {title:Title}
 
@@ -179,7 +179,7 @@ if the destination variables already exist, unless {cmd:replace} is also specifi
 {synoptline}
 {p2colreset}{...}
 {p 4 6 2}- To save the estimates of specific absvars, write {newvar}{inp:={it:absvar}}. This works with {cmd:reghdfejl}, not {cmd:partialhdfejl}.{p_end}
-{p 4 6 2}-  However, be aware that estimates for the fixed effects are generally inconsistent and not econometrically identified.{p_end}
+{p 4 6 2}- However, be aware that estimates for the fixed effects are generally inconsistent and not econometrically identified.{p_end}
 {p 4 6 2}- Using categorical interactions (e.g. {it:x}{cmd:#}{it:z}) is easier and faster than running {it:egen group(...)} beforehand.{p_end}
 {p 4 6 2}- {browse "http://scorreia.com/research/singletons.pdf":Singleton observations} are dropped iteratively until no more singletons are found (see the linked article for details).{p_end}
 {p 4 6 2}- Slope-only absvars ("state#c.time") have poor numerical stability and slow convergence. If you need those, either i) increase tolerance or
@@ -354,6 +354,7 @@ the resulting variable will always be of type {it:double}.{p_end}
 {synopt:{cmd:e(ll)}}log-likelihood{p_end}
 {synopt:{cmd:e(ll_0)}}log-likelihood of fixed-effect-only regression{p_end}
 {synopt:{cmd:e(F)}}F statistic{p_end}
+{synopt:{cmd:e(widstat)}}For IV regression, Kleibergen-Paap weak identification {it:F}{p_end}
 {synopt:{cmd:e(rank)}}rank of {cmd:e(V)}{p_end}
 {synopt:{cmd:e(N_clustervars)}}number of cluster variables{p_end}
 {synopt:{cmd:e(N_clust}#{cmd:)}}number of clusters for the #th cluster variable{p_end}

@@ -1,5 +1,6 @@
 // Perform HDFE partialling in a common sample
 
+cap program drop partialhdfejl
 program define partialhdfejl
   syntax varlist [if] [in] [aw pw fw iw/], Absorb(string) [GENerate(string) PREfix(string) replace ITerations(integer 16000) gpu TOLerance(real 1e-8) compact INTERruptible]
 
@@ -85,14 +86,14 @@ program define partialhdfejl
   local vars `varlist' `absorbvars' `wtvar'
   local vars: list uniq vars
 
-  jl PutVarsToDFNoMissing `vars' if `touse'
+  jl PutVarsToDF `vars' if `touse', nomissing double
   qui jl: size(df,1)
   _assert `r(ans)', rc(2001) msg(insufficient observations)
 
   if "`compact'" !="" drop _all
 
   jl, qui `interruptible': p = partial_out(df, @formula(`:subinstr local varlist " " " + ", all' ~ 1 `feterms') `wtopt', tol=`tolerance', maxiter=`iterations' `methodopt')
-  
+
   if "`compact'"!="" {
     jl, qui: GC.gc()
     use `compactfile'

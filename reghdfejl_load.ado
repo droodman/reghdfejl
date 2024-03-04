@@ -1,8 +1,8 @@
-*! reghdfejl 0.6.0 20 December 2023
+*! reghdfejl_load 0.6.2 15 February 2024
 
 cap program drop reghdfejl_load
 program define reghdfejl_load
-  local JLVERSION 0.9.0
+  local JLVERSION 0.10.0
 
   if `"$reghdfejl_loaded"'=="" {
     cap jl version

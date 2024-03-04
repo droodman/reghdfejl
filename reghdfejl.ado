@@ -1,4 +1,4 @@
-*! reghdfejl 0.6.1 26 January 2024
+*! reghdfejl 0.6.2 3 March 2024
 
 // The MIT License (MIT)
 //
@@ -87,7 +87,7 @@ program define reghdfejl, eclass
     exit 0
   }
 
-	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
+	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) SMall vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
                                           noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact VERBose INTERruptible noCONStant KEEPSINgletons *]
   local sample = "`sample'"==""
 
@@ -114,10 +114,9 @@ program define reghdfejl, eclass
     }
     else local wtvar: copy local exp
     local wtopt , weights = :`wtvar'
-    local haspw = "`weight'"=="pweight"
+    local robust robust
   }
 
-  fvunab anything: `anything'
   tokenize `anything'
   local depname: copy local 1
   macro shift
@@ -125,11 +124,11 @@ program define reghdfejl, eclass
   local hasiv = strpos(`"`*'"', "=")
   if `hasiv' {
     local t = regexm(`"`*'"', "^([^\(]*)\(([^=]*)=([^\)]*)\)(.*)$")  // standard IV syntax
-    local inexogname `=regexs(1)' `=regexs(4)'
-    local instdname = regexs(2)
-    local instsname = regexs(3)
+    fvunab inexogname: `=regexs(1)' `=regexs(4)'
+    fvunab instdname: `=regexs(2)'
+    fvunab instsname: `=regexs(3)'
   }
-  else local inexogname `*'
+  else fvunab inexogname: `*'
 
   markout `touse' `depname' `instdname' `inexogname' `instsname'
 
@@ -194,7 +193,7 @@ program define reghdfejl, eclass
         _ms_parse_parts `var'
         if !r(omit) {
           local `varset'name ``varset'name' `var'
-          if "`r(op)'"=="" local `varset' ``varset'' `var'
+          if "`r(op)'`r(op1)'"=="" local `varset' ``varset'' `var'
           else {
             tempvar t
             qui gen double `t' = `var' if `touse'
@@ -286,7 +285,7 @@ program define reghdfejl, eclass
     qui keep if `touse'
   }
 
-  jl PutVarsToDFNoMissing `vars' if `touse'  // put all vars in Julia DataFrame named df
+  jl PutVarsToDF `vars' if `touse', nomissing doubleonly // put all vars in Julia DataFrame named df
 
   if "`verbose'"!="" jl: df
 
@@ -444,6 +443,10 @@ program define reghdfejl, eclass
   ereturn scalar r2_a = `t'
   jl, qui: SF_scal_save("`t'", m.F)
   ereturn scalar F = `t'
+  if `hasiv' {
+    jl, qui: SF_scal_save("`t'", m.F_kp)
+    ereturn scalar widstat = `t'
+  }
   jl, qui: SF_scal_save("`t'", m.iterations)
   ereturn scalar ic = `t'
   jl, qui: SF_scal_save("`t'", m.converged)
@@ -577,6 +580,12 @@ program define Display
   }
 
   if "`table'"=="" ereturn display, level(`level') `diopts'
+  
+  if e(model)=="iv" {
+    local res `:di %10.3f e(widstat)'
+    di "Weak identification test (Kleibergen-Paap rk Wald F statistic):" _col(`=79-strlen("`res'")') as res `res'
+    di as txt "{hline 78}"
+  }
 end
 
 
@@ -593,3 +602,5 @@ end
 * 0.5.1 Fix dropping of some non-absorbed interaction terms. Handle noconstant when no a()
 * 0.6.0 Added vce(bs)
 * 0.6.1 Bug fixes. Added interruptible option.
+* 0.6.2 Bug fixes. Add Kleibergen-Paap return value. Catch small option.
+* 0.6.3 Bug fixes, including [pw] not triggering robust. Bump to julia.ado 0.10.0.
