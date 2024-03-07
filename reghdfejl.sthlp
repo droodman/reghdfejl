@@ -43,7 +43,7 @@
 {synopt: {cmdab:a:bsorb}({it:absvars}, [{cmdab:save:fe}])}categorical variables representing the fixed effects to be absorbed{p_end}
 {synopt: {opth vce:(reghdfejl##model_opts:vcetype)}}{it:vcetype} may be {opt un:adjusted} (default), {opt r:obust}, {opt bs}/{opt boot:strap}, {opt cl:uster} {help fvvarlist} (allowing multi-way clustering){p_end}
 {synopt: {opth res:iduals(newvar)}}save regression residuals; required for postestimation "{it:predict <varname>, d}" {p_end}
-{synopt:{opt tol:erance(#)}}criterion for convergence. default is 1e-8{p_end}
+{synopt:{opt tol:erance(#)}}criterion for convergence. default is 1e-6{p_end}
 {synopt:{opt iter:ate(#)}}maximum number of iterations; default is 16,000{p_end}
 {synopt:{opt nosamp:le}}will not create {it:e(sample)}, saving some space and speed{p_end}
 {synopt:{opt compact}}temporarily saves all data to disk in order to free memory{p_end}

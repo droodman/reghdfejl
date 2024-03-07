@@ -88,7 +88,7 @@ program define reghdfejl, eclass
   }
 
 	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) SMall vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
-                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact VERBose INTERruptible noCONStant KEEPSINgletons *]
+                                          noSAMPle TOLerance(real 1e-6) Level(real `c(level)') NOHEADer NOTABLE compact VERBose INTERruptible noCONStant KEEPSINgletons *]
   local sample = "`sample'"==""
 
   _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
@@ -124,11 +124,11 @@ program define reghdfejl, eclass
   local hasiv = strpos(`"`*'"', "=")
   if `hasiv' {
     local t = regexm(`"`*'"', "^([^\(]*)\(([^=]*)=([^\)]*)\)(.*)$")  // standard IV syntax
-    fvunab inexogname: `=regexs(1)' `=regexs(4)'
+    cap fvunab inexogname: `=regexs(1)' `=regexs(4)'
     fvunab instdname: `=regexs(2)'
     fvunab instsname: `=regexs(3)'
   }
-  else fvunab inexogname: `*'
+  else cap fvunab inexogname: `*'
 
   markout `touse' `depname' `instdname' `inexogname' `instsname'
 
@@ -285,7 +285,7 @@ program define reghdfejl, eclass
     qui keep if `touse'
   }
 
-  jl PutVarsToDF `vars' if `touse', nomissing doubleonly // put all vars in Julia DataFrame named df
+  jl PutVarsToDF `vars' if `touse', nomissing doubleonly nolabel  // put all vars in Julia DataFrame named df
 
   if "`verbose'"!="" jl: df
 
