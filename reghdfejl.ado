@@ -584,7 +584,7 @@ program define Display
   if e(model)=="iv" {
     local res `:di %10.3f e(widstat)'
     di "Weak identification test (Kleibergen-Paap rk Wald F statistic):" _col(`=79-strlen("`res'")') as res `res'
-    di as txt "{hline 78}"
+    di as txt "{hline 80}"
   }
 end
 
