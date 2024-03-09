@@ -88,13 +88,15 @@ program define reghdfejl, eclass
   }
 
 	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) SMall vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
-                                          noSAMPle TOLerance(real 1e-6) Level(real `c(level)') NOHEADer NOTABLE compact VERBose INTERruptible noCONStant KEEPSINgletons *]
+                                          noSAMPle TOLerance(string) Level(real `c(level)') NOHEADer NOTABLE compact VERBose INTERruptible noCONStant ///
+                                          KEEPSINgletons SEParation(string) FAMily(string) link(string) *]
   local sample = "`sample'"==""
 
-  _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
-  _assert `tolerance'>0, msg("{cmdab:tol:erance()} must be positive.") rc(198)
+  _assert `iterations'>0, msg({cmdab:It:erations()} must be positive) rc(198)
 
-  _get_diopts diopts _options, `options'
+	_get_eformopts, soptions eformopts(`options') allowed(hr shr IRr or RRr)
+	local eformopts `s(eform)'
+  _get_diopts diopts _options, `s(options)'
 
   marksample touse
   
@@ -132,9 +134,69 @@ program define reghdfejl, eclass
 
   markout `touse' `depname' `instdname' `inexogname' `instsname'
 
+  if `"`family'`link'"'!="" {
+    local nl nl
+
+    _assert !`hasiv', msg(instrumental variables not accepted for nonlinear models) rc(198)
+    _assert "`wtopt'"=="", msg(weights not yet supported for nonlinear models) rc(198)
+    _assert "`tolerance'"=="", msg(the tolerance() option is for linear models) rc(198)
+
+    if `"`separation'"'!="" {
+      local 0, `separation'
+      syntax, [fe ir simplex mu]
+      _assert "`simplex'"=="", msg(separation(simplex) not yet supported) rc(198)
+      local separation `fe' `ir' `simplex' `mu'
+      local sepopt , separation=[:`:subinstr local separation " " ", :", all']
+    }
+
+    local families gaussian igaussian binomial poisson gamma bernoulli geometric nbinomial
+
+    if `"`family'"'=="" local family gaussian
+    else {
+      local 0, `family'
+      syntax, [GAUssian IGaussian BInomial Poisson NBinomial(string) Gamma BErnoulli GEOmetric]
+      local family `gaussian' `igaussian' `binomial' `poisson' `gamma' `bernoulli' `geometric'
+      _assert 1>=("`nbinomial'"!="") + `:word count `family'', msg(family(`family') not allowed) rc(198)
+    }
+    if "`nbinomial'"!="" {
+      confirm number `nbinomial'
+      local family nbinomial
+      local familyopt , NegativeBinomial(`nbinomial')
+    }
+    else {
+      local n: list posof "`family'" in families
+      local familyopt , `:word `n' of Normal InverseGuassian Binomial Poisson Gamma Bernoulli Geometric'()
+    }
+
+    if `"`link'"'=="" {
+      local n: list posof "`family'" in families
+      local linkopt , `:word `n' of Identity InverseSquareLink LogitLink LogLink InverseLink LogitLink LogLink LogLink'()  // canonical links but log for nbinomial
+    }
+    else {
+      local 0, `link'
+      syntax, [Identity log Logit Probit Cloglog POWer(string) OPOwer(string) NBinomial LOGLog logc]
+      _assert "`opower'`loglog'`logc'`probit'"=="", msg(link(`link') not supported) rc(198)
+      _assert 1==("`power'"!="") + `:word count `identity' `log' `logit' `probit' `cloglog' `nbinomial'', msg(link(`link') not allowed) rc(198)
+
+      if "`power'"!="" {
+        confirm number `power'
+        local linkopt , PowerLink(`power')
+      }
+      else {
+        local links identity log logit cloglog nbinomial
+        local n: list posof "`link'" in links
+        local linkopt , `:word `n' of Identity Log Logit Cloglog NegativeBinomial'Link()
+      }
+    }
+  }
+  else if `"`tolerance'"'!="" {
+    _assert `tolerance'>0, msg({cmdab:tol:erance()} must be positive) rc(198)
+    local tolopt , tol=`tolerance'
+  }
+
   if `"`vce'"' != "" {
-    _assert `"`cluster'"'=="", msg("only one of cluster() and vce() can be specified") rc(198)
-    _assert `"`robust'"' =="", msg("only one of robust and vce() can be specified"   ) rc(198)
+    _assert `"`cluster'"'=="", msg(only one of cluster() and vce() can be specified) rc(198)
+    _assert `"`robust'"' =="", msg(only one of robust and vce() can be specified   ) rc(198)
     tokenize `"`vce'"', parse(" ,")
     local 0, `1'
     syntax, [Robust CLuster UNadjusted ols bs BOOTstrap]
@@ -144,9 +206,9 @@ program define reghdfejl, eclass
     if `bs' {
       local 0 `*'
       syntax, [CLuster(string) Reps(integer 50) mse seed(string) SIze(integer 0) PROCs(integer 1)]
-      _assert `reps'>1, msg("reps() must be an integer greater than 1") rc(198)
-      _assert `size'>=0, msg("size() must be a positive integer") rc(198)
-      _assert `procs'>=0, msg("procs() must be a positive integer") rc(198)
+      _assert `reps'>1, msg(reps() must be an integer greater than 1) rc(198)
+      _assert `size'>=0, msg(size() must be a positive integer) rc(198)
+      _assert `procs'>=0, msg(procs() must be a positive integer) rc(198)
       if `procs'==0 local procs 1
 
       cap confirm numeric var `cluster'
@@ -205,7 +267,7 @@ program define reghdfejl, eclass
     else local `varset' ``varset'name'
     local k`varset': word count ``varset''
   }
-  _assert `kdep'==1, msg("Multiple dependent variables specified.") rc(198) 
+  _assert `kdep'==1, msg(Multiple dependent variables specified.) rc(198) 
 
   if `"`absorb'"' != "" {
     ExpandAbsorb `absorb'
@@ -303,7 +365,7 @@ program define reghdfejl, eclass
 
   * Estimate!
   local flinejl f = @formula(`dep' ~ `inexog' `ivarg' `feterms')
-  local cmdlinejl reg(df, f `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt', tol=`tolerance', maxiter=`iterations')
+  local cmdlinejl `nl'reg(df, f `familyopt' `linkopt' `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt' `sepopt' `tolopt', maxiter=`iterations')
   jl, qui: `flinejl'
   if "`verbose'"!="" {
     di `"`flinejl'"'
@@ -352,7 +414,7 @@ program define reghdfejl, eclass
                  end;                                                                                                   ///
                  df.`bswt' = bsweights[_id];                                                                            ///
                  `=cond("`wtopt'"!="", "df.`bswt' .*= df.`wtvar';", "")'                                                ///
-                 b = coef(reg(df, f, weights=:`bswt' `methodopt' `threadsopt', tol=`tolerance', maxiter=`iterations')); ///
+                 b = coef(`nl'reg(df, f `familyopt' `linkopt', weights=:`bswt' `methodopt' `threadsopt'  `sepopt' `tolopt', maxiter=`iterations')); ///
                  [b, b*b']                                                                                              ///
                end;                                                                                                     ///
                retval = @distributed (+) for m in 1:`reps'                                                              ///
@@ -429,38 +491,51 @@ program define reghdfejl, eclass
   ereturn scalar N_full = `t'
   mata st_numscalar("e(rank)", rank(st_matrix("e(V)")))
   ereturn scalar df_m = e(rank)
-  jl, qui: SF_scal_save("`t'", dof_fes(m))
-  ereturn scalar df_a = `t'
-  jl, qui: SF_scal_save("`t'", dof_residual(m))
-  ereturn scalar df_r = `t'
-  jl, qui: SF_scal_save("`t'", rss(m))
-  ereturn scalar rss = `t'
-  jl, qui: SF_scal_save("`t'", mss(m))
-  ereturn scalar mss = `t'
-  jl, qui: SF_scal_save("`t'", r2(m))
-  ereturn scalar r2`' = `t'
-  jl, qui: SF_scal_save("`t'", adjr2(m))
-  ereturn scalar r2_a = `t'
-  jl, qui: SF_scal_save("`t'", m.F)
-  ereturn scalar F = `t'
-  if `hasiv' {
-    jl, qui: SF_scal_save("`t'", m.F_kp)
-    ereturn scalar widstat = `t'
-  }
+  
   jl, qui: SF_scal_save("`t'", m.iterations)
   ereturn scalar ic = `t'
   jl, qui: SF_scal_save("`t'", m.converged)
   ereturn scalar converged = `t'
   jl, qui: SF_scal_save("`t'", sizedf[1] - nobs(m))
   ereturn scalar num_singletons = `t'
-  ereturn scalar rmse = sqrt(e(rss) / (e(N) - e(df_a) - e(rank)))
-  ereturn scalar ll  = -e(N)/2*(1 + log(2*_pi / e(N) *  e(rss)          ))
-  ereturn scalar ll0 = -e(N)/2*(1 + log(2*_pi / e(N) * (e(rss) + e(mss))))
 
-  if 0`N_hdfe' {
-    jl, qui: SF_scal_save("`t'", m.r2_within)
-    ereturn scalar r2_within = `t'
+  if "`nl'"!="" {
+    jl, qui: SF_scal_save("`t'", m.loglikelihood)
+    ereturn scalar ll = `t'
+    jl, qui: SF_scal_save("`t'", m.nullloglikelihood)
+    ereturn scalar ll0 = `t'
+    ereturn local family `family'
+    ereturn local link `link'
   }
+  else {
+    jl, qui: SF_scal_save("`t'", dof_fes(m))
+    ereturn scalar df_a = `t'
+    jl, qui: SF_scal_save("`t'", dof_residual(m))
+    ereturn scalar df_r = `t'
+    jl, qui: SF_scal_save("`t'", rss(m))
+    ereturn scalar rss = `t'
+    jl, qui: SF_scal_save("`t'", mss(m))
+    ereturn scalar mss = `t'
+    jl, qui: SF_scal_save("`t'", r2(m))
+    ereturn scalar r2`' = `t'
+    jl, qui: SF_scal_save("`t'", adjr2(m))
+    ereturn scalar r2_a = `t'
+    jl, qui: SF_scal_save("`t'", m.F)
+    ereturn scalar F = `t'
+    if `hasiv' {
+      jl, qui: SF_scal_save("`t'", m.F_kp)
+      ereturn scalar widstat = `t'
+    }
+    return scalar rmse = sqrt(e(rss) / (e(N) - e(df_a) - e(rank)))
+    ereturn scalar ll  = -e(N)/2*(1 + log(2*_pi / e(N) *  e(rss)          ))
+    ereturn scalar ll0 = -e(N)/2*(1 + log(2*_pi / e(N) * (e(rss) + e(mss))))
+
+    if 0`N_hdfe' {
+      jl, qui: SF_scal_save("`t'", m.r2_within)
+      ereturn scalar r2_within = `t'
+    }
+  }
+
 
   if "`wtvar'"=="" ereturn scalar sumweights = e(N)
   else {
@@ -529,10 +604,11 @@ program define reghdfejl, eclass
   ereturn local cmdlinejl: copy local cmdlinejl
   ereturn local cmd reghdfejl
 
-  Display, `diopts' level(`level') `noheader' `notable'
+  Display, `diopts' `eformopts' level(`level') `noheader' `notable'
 end
 
 * Expand nested expression like absorb(a#c.(b c)) without using fvunab, which apparently scans all vars for their levels, taking time
+cap program drop ExpandAbsorb
 program define ExpandAbsorb, rclass
   while `"`0'"' != "" {
     gettoken car 0: 0, bind
@@ -546,10 +622,10 @@ program define ExpandAbsorb, rclass
   }
 end
 
+cap program drop Display
 program define Display
   version 16
   syntax [, Level(real `c(level)') noHEADer notable *]
-  _get_diopts diopts, `options'
 
   if !e(drop_singletons) di as err `"WARNING: Singleton observations not dropped; statistical significance is biased {browse "http://scorreia.com/reghdfe/nested_within_cluster.pdf":(link)}"'
   if e(num_singletons) di as txt `"(dropped `e(num_singletons)' {browse "http://scorreia.com/research/singletons.pdf":singleton observations})"'
@@ -579,7 +655,7 @@ program define Display
     di _col(`=50-strlen("`N_clust'`e(cluster)'")') as txt "(Replications based on " as res "`N_clust'" as txt " clusters in " as res e(cluster) as txt ")"
   }
 
-  if "`table'"=="" ereturn display, level(`level') `diopts'
+  if "`table'"=="" ereturn display, level(`level') `options'
   
   if e(model)=="iv" {
     local res `:di %10.3f e(widstat)'
