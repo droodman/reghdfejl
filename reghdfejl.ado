@@ -277,7 +277,6 @@ program define reghdfejl, eclass
     }
   }
   else {
-    asd
     local cmdjl reg
     if `"`tolerance'"'!="" {
       _assert `tolerance'>0, msg({cmdab:tol:erance()} must be positive) rc(198)
@@ -286,8 +285,8 @@ program define reghdfejl, eclass
   }
 
   if `"`absorb'"' != "" {
-    ExpandAbsorb `absorb'
-    local 0 `r(exp)'
+    fvunab exp: `absorb'
+    local 0 `exp'
     syntax anything(equalok), [SAVEfe]
     tokenize `anything', parse(" =")
 
@@ -626,19 +625,19 @@ program define reghdfejl, eclass
 end
 
 * Expand nested expression like absorb(a#c.(b c)) without using fvunab, which apparently scans all vars for their levels, taking time
-cap program drop ExpandAbsorb
-program define ExpandAbsorb, rclass
-  while `"`0'"' != "" {
-    gettoken car 0: 0, bind
-    if regexm("`car'", "([^\(]*)\((.*)\)([^\)]*)") {
-      local prefix = regexcapture(1)
-      local suffix = regexcapture(3)
-      ExpandAbsorb `=regexcapture(2)'
-      mata st_local("car", invtokens("`prefix'" :+ tokens("`r(exp)'") :+ "`suffix'"))
-    }
-    return local exp `return(exp)' `car'
-  }
-end
+// cap program drop ExpandAbsorb
+// program define ExpandAbsorb, rclass
+//   while `"`0'"' != "" {
+//     gettoken car 0: 0, bind
+//     if regexm("`car'", "([^\(]*)\((.*)\)([^\)]*)") {
+//       local prefix = regexcapture(1)
+//       local suffix = regexcapture(3)
+//       ExpandAbsorb `=regexcapture(2)'
+//       mata st_local("car", invtokens("`prefix'" :+ tokens("`r(exp)'") :+ "`suffix'"))
+//     }
+//     return local exp `return(exp)' `car'
+//   }
+// end
 
 cap program drop Display
 program define Display
