@@ -89,7 +89,7 @@ program define reghdfejl, eclass
 
 	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) SMall vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
                                           noSAMPle TOLerance(string) Level(real `c(level)') NOHEADer NOTABLE compact VERBose INTERruptible noCONStant ///
-                                          KEEPSINgletons SEParation(string) FAMily(string) link(string) *]
+                                          /*EXPosure(varlist max=1) OFFset(varlist max=1)*/ KEEPSINgletons SEParation(string) FAMily(string) link(string) *]
   local sample = "`sample'"==""
 
   _assert `iterations'>0, msg({cmdab:It:erations()} must be positive) rc(198)
@@ -132,67 +132,7 @@ program define reghdfejl, eclass
   }
   else cap fvunab inexogname: `*'
 
-  markout `touse' `depname' `instdname' `inexogname' `instsname'
-
-  if `"`family'`link'"'!="" {
-    local nl nl
-
-    _assert !`hasiv', msg(instrumental variables not accepted for nonlinear models) rc(198)
-    _assert "`wtopt'"=="", msg(weights not yet supported for nonlinear models) rc(198)
-    _assert "`tolerance'"=="", msg(the tolerance() option is for linear models) rc(198)
-
-    if `"`separation'"'!="" {
-      local 0, `separation'
-      syntax, [fe ir simplex mu]
-      _assert "`simplex'"=="", msg(separation(simplex) not yet supported) rc(198)
-      local separation `fe' `ir' `simplex' `mu'
-      local sepopt , separation=[:`:subinstr local separation " " ", :", all']
-    }
-
-    local families gaussian igaussian binomial poisson gamma bernoulli geometric nbinomial
-
-    if `"`family'"'=="" local family gaussian
-    else {
-      local 0, `family'
-      syntax, [GAUssian IGaussian BInomial Poisson NBinomial(string) Gamma BErnoulli GEOmetric]
-      local family `gaussian' `igaussian' `binomial' `poisson' `gamma' `bernoulli' `geometric'
-      _assert 1>=("`nbinomial'"!="") + `:word count `family'', msg(family(`family') not allowed) rc(198)
-    }
-    if "`nbinomial'"!="" {
-      confirm number `nbinomial'
-      local family nbinomial
-      local familyopt , NegativeBinomial(`nbinomial')
-    }
-    else {
-      local n: list posof "`family'" in families
-      local familyopt , `:word `n' of Normal InverseGuassian Binomial Poisson Gamma Bernoulli Geometric'()
-    }
-
-    if `"`link'"'=="" {
-      local n: list posof "`family'" in families
-      local linkopt , `:word `n' of Identity InverseSquareLink LogitLink LogLink InverseLink LogitLink LogLink LogLink'()  // canonical links but log for nbinomial
-    }
-    else {
-      local 0, `link'
-      syntax, [Identity log Logit Probit Cloglog POWer(string) OPOwer(string) NBinomial LOGLog logc]
-      _assert "`opower'`loglog'`logc'`probit'"=="", msg(link(`link') not supported) rc(198)
-      _assert 1==("`power'"!="") + `:word count `identity' `log' `logit' `probit' `cloglog' `nbinomial'', msg(link(`link') not allowed) rc(198)
-
-      if "`power'"!="" {
-        confirm number `power'
-        local linkopt , PowerLink(`power')
-      }
-      else {
-        local links identity log logit cloglog nbinomial
-        local n: list posof "`link'" in links
-        local linkopt , `:word `n' of Identity Log Logit Cloglog NegativeBinomial'Link()
-      }
-    }
-  }
-  else if `"`tolerance'"'!="" {
-    _assert `tolerance'>0, msg({cmdab:tol:erance()} must be positive) rc(198)
-    local tolopt , tol=`tolerance'
-  }
+  markout `touse' `depvar' `instdname' `inexogname' `instsname'
 
   if `"`vce'"' != "" {
     _assert `"`cluster'"'=="", msg(only one of cluster() and vce() can be specified) rc(198)
@@ -268,6 +208,82 @@ program define reghdfejl, eclass
     local k`varset': word count ``varset''
   }
   _assert `kdep'==1, msg(Multiple dependent variables specified.) rc(198) 
+
+  if `"`family'`link'"'!="" {
+    local nl nl
+    local cmdjl = cond(`"`absorb'"'=="", "glm", "nlreg")
+
+    _assert !`hasiv', msg(instrumental variables not accepted for nonlinear models) rc(198)
+    _assert "`wtopt'"=="", msg(weights not yet supported for nonlinear models) rc(198)
+    _assert "`tolerance'"=="", msg(the tolerance() option is for linear models) rc(198)
+
+    if `"`separation'"'!="" {
+      local 0, `separation'
+      syntax, [fe ir simplex mu]
+      _assert "`simplex'"=="", msg(separation(simplex) not yet supported) rc(198)
+      local separation `fe' `ir' `simplex' `mu'
+      local sepopt , separation=[:`:subinstr local separation " " ", :", all']
+    }
+
+    local families gaussian igaussian binomial nbinomial poisson gamma bernoulli geometric
+
+    if `"`family'"'=="" local family gaussian
+    else {
+      tokenize `family'
+      local 0, `1'
+      syntax, [GAUssian IGaussian BInomial NBinomial Poisson Gamma BErnoulli GEOmetric]
+      local family `gaussian' `igaussian' `binomial' `nbinomial' `poisson' `gamma' `bernoulli' `geometric'
+      _assert `:word count `family''==1, msg(family(`*') not allowed) rc(198)
+      if "`nbinomial'" != "" {
+        if "`2'"=="" local 2 1  // default to (negative) binomial with denominator=1
+          else confirm integer number `2'
+        local familyopt , NegativeBinomial(`2')
+      }
+      else {
+        if "`binomial'" != "" {
+          sum `dep' if `touse', meanonly
+          if "`dep'"!="`depname'" replace `dep' = `dep' / r(max) if `touse'
+          else {
+            tempname t
+            gen double `t' = `dep' / r(max) if `touse'  // rescale dep var to [0,1]
+            local dep: copy local t
+          }
+        }
+        local n: list posof "`family'" in families
+        local familyopt , `:word `n' of Normal InverseGuassian Binomial NegativeBinomial Poisson Gamma Bernoulli Geometric'()
+      }
+    }
+
+    if `"`link'"'=="" {
+      local n: list posof "`family'" in families
+      local linkopt , `:word `n' of Identity InverseSquareLink LogitLink LogLink LogLink InverseLink LogitLink LogLink'()  // canonical links but log for nbinomial
+    }
+    else {
+      tokenize `0'
+      local 0, `1'
+      syntax, [Identity log Logit Probit Cloglog POWer OPOwer NBinomial LOGLog logc]
+      _assert "`opower'`loglog'`logc'`probit'"=="", msg(link(`link') not supported) rc(198)
+      local link `identity' `log' `logit' `cloglog' `nbinomial'
+      _assert `:word count `link''==1, msg(link(`link') not allowed) rc(198)
+      if "`power'"!="" {
+        confirm number `2'
+        local linkopt , PowerLink(`power')
+      }
+      else {
+        local links identity log logit cloglog nbinomial
+        local n: list posof "`link'" in links
+        local linkopt , `:word `n' of Identity Log Logit Cloglog NegativeBinomial'Link()
+      }
+    }
+  }
+  else {
+    asd
+    local cmdjl reg
+    if `"`tolerance'"'!="" {
+      _assert `tolerance'>0, msg({cmdab:tol:erance()} must be positive) rc(198)
+      local tolopt , tol=`tolerance'
+    }
+  }
 
   if `"`absorb'"' != "" {
     ExpandAbsorb `absorb'
@@ -365,7 +381,7 @@ program define reghdfejl, eclass
 
   * Estimate!
   local flinejl f = @formula(`dep' ~ `inexog' `ivarg' `feterms')
-  local cmdlinejl `nl'reg(df, f `familyopt' `linkopt' `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt' `sepopt' `tolopt', maxiter=`iterations')
+  local cmdlinejl `cmdjl'(df, f `familyopt' `linkopt' `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt' `sepopt' `tolopt', maxiter=`iterations')
   jl, qui: `flinejl'
   if "`verbose'"!="" {
     di `"`flinejl'"'
@@ -414,7 +430,7 @@ program define reghdfejl, eclass
                  end;                                                                                                   ///
                  df.`bswt' = bsweights[_id];                                                                            ///
                  `=cond("`wtopt'"!="", "df.`bswt' .*= df.`wtvar';", "")'                                                ///
-                 b = coef(`nl'reg(df, f `familyopt' `linkopt', weights=:`bswt' `methodopt' `threadsopt'  `sepopt' `tolopt', maxiter=`iterations')); ///
+                 b = coef(`cmdjl'(df, f `familyopt' `linkopt', weights=:`bswt' `methodopt' `threadsopt'  `sepopt' `tolopt', maxiter=`iterations')); ///
                  [b, b*b']                                                                                              ///
                end;                                                                                                     ///
                retval = @distributed (+) for m in 1:`reps'                                                              ///
@@ -526,7 +542,7 @@ program define reghdfejl, eclass
       jl, qui: SF_scal_save("`t'", m.F_kp)
       ereturn scalar widstat = `t'
     }
-    return scalar rmse = sqrt(e(rss) / (e(N) - e(df_a) - e(rank)))
+    ereturn scalar rmse = sqrt(e(rss) / (e(N) - e(df_a) - e(rank)))
     ereturn scalar ll  = -e(N)/2*(1 + log(2*_pi / e(N) *  e(rss)          ))
     ereturn scalar ll0 = -e(N)/2*(1 + log(2*_pi / e(N) * (e(rss) + e(mss))))
 
@@ -593,7 +609,7 @@ program define reghdfejl, eclass
   }
   else ereturn local model ols
 
-  ereturn local title HDFE `=cond(`hasiv', "2SLS", "linear")' regression with Julia
+  ereturn local title HDFE `=cond(`hasiv', "2SLS", cond("`nl'"=="","linear","nonlinear"))' regression with Julia
   if 0`N_hdfe' ereturn local title2 Absorbing `N_hdfe' HDFE `=plural(0`N_hdfe', "group")'
   ereturn local absvars: copy local absorb
   ereturn local marginsnotok Residuals SCore
@@ -603,6 +619,8 @@ program define reghdfejl, eclass
   ereturn local flinejl: copy local flinejl
   ereturn local cmdlinejl: copy local cmdlinejl
   ereturn local cmd reghdfejl
+//   ereturn local exposure `exposure'
+//   ereturn local offset `offset'
 
   Display, `diopts' `eformopts' level(`level') `noheader' `notable'
 end
