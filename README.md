@@ -26,7 +26,7 @@ Because Julia uses just-in-time compilation, the first time you run `reghdfejl` 
 `reghdfejl` ignores reghdfe options that affect the best-fit search algorithm, as well as the rarely-used dofadjustments() option. It accepts three novel options:
 * `threads()` specifies the number of CPU threads FixedEffectModels.jl should use, for speed. The default is 4.
 * `gpu` specifies that a [GPU be used for computation](https://github.com/FixedEffects/FixedEffectModels.jl#nvidia-gpu) (works better on NVIDIA GPUs than Apple Silicon).
-* `bs()` performs high-speed bootstrapping via parallel processing.
+* `bs()` a suboption of `vce()` for high-speed bootstrapping with parallel processing.
 
 ## Examples
 ```
