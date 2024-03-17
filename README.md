@@ -25,7 +25,8 @@ Because Julia uses just-in-time compilation, the first time you run `reghdfejl` 
 
 `reghdfejl` ignores reghdfe options that affect the best-fit search algorithm, as well as the rarely-used dofadjustments() option. It accepts three novel options:
 * `threads()` specifies the number of CPU threads FixedEffectModels.jl should use, for speed. The default is 4.
-* `gpu` specifies that an [NVIDIA GPU be used for computation](https://github.com/FixedEffects/FixedEffectModels.jl#nvidia-gpu).
+* `gpu` specifies that a [GPU be used for computation](https://github.com/FixedEffects/FixedEffectModels.jl#nvidia-gpu) (works better on NVIDIA GPUs than Apple Silicon).
+* `bs()` performs high-speed bootstrapping via parallel processing.
 
 ## Examples
 ```
@@ -34,6 +35,8 @@ reghdfejl ln_wage grade age ttl_exp tenure not_smsa south, absorb(idcode year)
 reghdfejl ln_wage grade age ttl_exp tenure not_smsa south, absorb(idcode year) vce(robust)
 reghdfejl ln_wage grade age ttl_exp tenure not_smsa south, absorb(idcode year) vce(cluster idcode) threads(4)
 reghdfejl ln_wage grade age ttl_exp tenure (not_smsa = south), absorb(idcode year) vce(cluster idcode year)
+reghdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(year occ_code) vce(bs, cluster(occ_code) reps(1000) seed(42) procs(4))
+
 ```
 
 ## Development plans
