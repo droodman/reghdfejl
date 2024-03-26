@@ -1,4 +1,4 @@
-*! reghdfejl 0.6.2 3 March 2024
+*! reghdfejl 0.6.3 26 March 2024
 
 // The MIT License (MIT)
 //
@@ -27,7 +27,7 @@
 
 cap program drop reghdfejl
 program define reghdfejl, eclass
-  version 16
+  version 15
 
   if replay() {
 		if "`e(cmd)'" != "reghdfejl" error 301
@@ -99,7 +99,7 @@ program define reghdfejl, eclass
   _get_diopts diopts _options, `s(options)'
 
   marksample touse
-  
+
   local gpulib = cond(c(os)=="MacOSX", "Metal", "CUDA")
   if "`gpu'"!="" local methodopt , method = :`gpulib'
 
@@ -109,6 +109,8 @@ program define reghdfejl, eclass
   reghdfejl_load
 
   if `"`exp'"' != "" {
+    local wtype: copy local weight
+    local wexp `"=`exp'"'
     cap confirm var `exp'
     if _rc {
       tempname wtvar
@@ -116,7 +118,7 @@ program define reghdfejl, eclass
     }
     else local wtvar: copy local exp
     local wtopt , weights = :`wtvar'
-    local robust robust
+    if "`weight'"=="pweight" local robust robust
   }
 
   tokenize `anything'
@@ -126,13 +128,13 @@ program define reghdfejl, eclass
   local hasiv = strpos(`"`*'"', "=")
   if `hasiv' {
     local t = regexm(`"`*'"', "^([^\(]*)\(([^=]*)=([^\)]*)\)(.*)$")  // standard IV syntax
-    cap fvunab inexogname: `=regexs(1)' `=regexs(4)'
-    fvunab instdname: `=regexs(2)'
-    fvunab instsname: `=regexs(3)'
+    local inexogname: `=regexs(1)' `=regexs(4)'
+    local instdname = regexs(2)
+    local instsname =regexs(3)
   }
-  else cap fvunab inexogname: `*'
+  else local inexogname `*'
 
-  markout `touse' `depvar' `instdname' `inexogname' `instsname'
+  markout `touse' `depname' `instdname' `inexogname' `instsname'
 
   if `"`vce'"' != "" {
     _assert `"`cluster'"'=="", msg(only one of cluster() and vce() can be specified) rc(198)
@@ -186,32 +188,19 @@ program define reghdfejl, eclass
     mata st_local("vcovopt", " , Vcov.cluster(" + invtokens(":":+tokens("`_cluster'"),",") + ")")
   }
 
+  _fv_check_depvar `dep'
   foreach varset in dep inexog instd insts {
-    if strpos("``varset'name'", ".") | strpos("``varset'name'", "#") | strpos("``varset'name'", "-") | strpos("``varset'name'", "?") | strpos("``varset'name'", "*") | strpos("``varset'name'", "~") {
-      fvexpand ``varset'name' if `touse'
-      local `varset'
-      local `varset'name
-      foreach var in `r(varlist)' {
-        _ms_parse_parts `var'
-        if !r(omit) {
-          local `varset'name ``varset'name' `var'
-          if "`r(op)'`r(op1)'"=="" local `varset' ``varset'' `var'
-          else {
-            tempvar t
-            qui gen double `t' = `var' if `touse'
-            local `varset' ``varset'' `t'
-          }
-        }
-      }
-    }
-    else local `varset' ``varset'name'
-    local k`varset': word count ``varset''
+    varlistS2J ``varset'name' if `touse'
+    local `varset'formula `r(formula)'
+    local `varset'names `r(varnames)'
+    local `varset'vars `r(vars)'
+    local dfaliascmds `dfaliascmds' `r(dfaliascmds)'
+    local DummyCodingargs "`DummyCodingargs' `r(DummyCodingargs)'"
   }
-  _assert `kdep'==1, msg(Multiple dependent variables specified.) rc(198) 
 
   if `"`family'`link'"'!="" {
     local nl nl
-    local cmdjl = cond(`"`absorb'"'=="", "glm", "nlreg")
+    _assert `"`absorb'"'!="", msg(Doesn't yet accept nonlinear models with no fixed effects. Use {help glm} instead.) rc(198)
 
     _assert !`hasiv', msg(instrumental variables not accepted for nonlinear models) rc(198)
     _assert "`wtopt'"=="", msg(weights not yet supported for nonlinear models) rc(198)
@@ -242,11 +231,13 @@ program define reghdfejl, eclass
       else {
         if "`binomial'" != "" {
           sum `dep' if `touse', meanonly
-          if "`dep'"!="`depname'" replace `dep' = `dep' / r(max) if `touse'
-          else {
-            tempname t
-            gen double `t' = `dep' / r(max) if `touse'  // rescale dep var to [0,1]
-            local dep: copy local t
+          if r(max) != 1 {
+            if "`dep'"!="`depname'" replace `dep' = `dep' / r(max) if `touse'
+            else {
+              tempname t
+              gen double `t' = `dep' / r(max) if `touse'  // rescale dep var to [0,1]
+              local dep: copy local t
+            }
           }
         }
         local n: list posof "`family'" in families
@@ -276,17 +267,13 @@ program define reghdfejl, eclass
       }
     }
   }
-  else {
-    local cmdjl reg
-    if `"`tolerance'"'!="" {
-      _assert `tolerance'>0, msg({cmdab:tol:erance()} must be positive) rc(198)
-      local tolopt , tol=`tolerance'
-    }
+  else if `"`tolerance'"'!="" {
+    _assert `tolerance'>0, msg({cmdab:tol:erance()} must be positive) rc(198)
+    local tolopt , tol=`tolerance'
   }
 
   if `"`absorb'"' != "" {
-    fvunab exp: `absorb'
-    local 0 `exp'
+    local 0 `absorb'
     syntax anything(equalok), [SAVEfe]
     tokenize `anything', parse(" =")
 
@@ -338,7 +325,7 @@ program define reghdfejl, eclass
   }
   else if "`constant'"!="" local feterms + 0
 
-  local vars `dep' `inexog' `instd' `insts' `_cluster' `wtvar' `absorbvars' `bscluster'
+  local vars `depvars' `inexogvars' `instdvars' `instsvars' `_cluster' `wtvar' `absorbvars' `bscluster'
   local vars: list uniq vars
 
   if "`residuals'" != "" {
@@ -363,6 +350,7 @@ program define reghdfejl, eclass
   }
 
   jl PutVarsToDF `vars' if `touse', nomissing doubleonly nolabel  // put all vars in Julia DataFrame named df
+  jl, qui: `dfaliascmds'
 
   if "`verbose'"!="" jl: df
 
@@ -371,16 +359,11 @@ program define reghdfejl, eclass
 
   if "`compact'" !="" drop _all
 
-  mata: st_local("inexog", invtokens(tokens("`inexog'"), "+"))  // put +'s in var lists
-  if `hasiv' {
-    mata: st_local("instd", invtokens(tokens("`instd'"), "+"))
-    mata: st_local("insts", invtokens(tokens("`insts'"), "+"))
-    local ivarg + (`instd' ~ `insts')
-  }
+  if `hasiv' local ivarg + (`instdformula' ~ `instsformula')
 
   * Estimate!
-  local flinejl f = @formula(`dep' ~ `inexog' `ivarg' `feterms')
-  local cmdlinejl `cmdjl'(df, f `familyopt' `linkopt' `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt' `sepopt' `tolopt', maxiter=`iterations')
+  local flinejl f = @formula(`depformula' ~ `inexogformula' `ivarg' `feterms')
+  local cmdlinejl `nl'reg(df, f `familyopt' `linkopt' `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt' `sepopt' `tolopt', maxiter=`iterations', contrasts=Dict{Symbol, DummyCoding}(`DummyCodingargs'))
   jl, qui: `flinejl'
   if "`verbose'"!="" {
     di `"`flinejl'"'
@@ -429,7 +412,7 @@ program define reghdfejl, eclass
                  end;                                                                                                   ///
                  df.`bswt' = bsweights[_id];                                                                            ///
                  `=cond("`wtopt'"!="", "df.`bswt' .*= df.`wtvar';", "")'                                                ///
-                 b = coef(`cmdjl'(df, f `familyopt' `linkopt', weights=:`bswt' `methodopt' `threadsopt'  `sepopt' `tolopt', maxiter=`iterations')); ///
+                 b = coef(`nl'reg(df, f `familyopt' `linkopt', weights=:`bswt' `methodopt' `threadsopt'  `sepopt' `tolopt', maxiter=`iterations')); ///
                  [b, b*b']                                                                                              ///
                end;                                                                                                     ///
                retval = @distributed (+) for m in 1:`reps'                                                              ///
@@ -467,7 +450,7 @@ program define reghdfejl, eclass
     jl, qui: res = nothing
   }
 
-  tempname t N
+  tempname t N I
 
   jl, qui: SF_scal_save("`N'", nobs(m))
 
@@ -481,14 +464,17 @@ program define reghdfejl, eclass
     jl, qui: SF_scal_save("`t'", coefnames(m)[1]=="(Intercept)")
     local hascons = `t'
 
-    jl, qui: I = [1+`kinexog'+`hascons':`kinexog'+`hascons'+`kinstd' ; 1+`hascons':`kinexog'+`hascons' ; 1:`hascons']  // cons-exog-endog -> endog-exog-cons
-    jl, qui: `b' = collect(coef(m)[I]')
+//     _assert `r(ans)', msg(no coefficients estimated) rc(111)
+    jl, qui: `b' = coef(m)
     jl, qui: `V' = iszero(0`bs') ? vcov(m) : Vbs
-    jl, qui: `V' = replace!(`V'[I,I], NaN=>0.)
+    jl, qui: `V' = replace!(`V', NaN=>0.)
+    qui jl: join(coefnames(m), "|")
+    varlistJ2S, jlcoefnames(`r(ans)') vars(`inexogvars' `inendogvars') varnames(`inexognames' `inendognames')
+    local coefnames `r(stcoefs)'
+    if `r(hascons)' jl, qui: `I' = [collect(2:length(`b')); 1]; `b'=`b'[`I']; `V'=`V'[`I',`I']
+    jl, qui: `b' = collect(`b'')
     jl GetMatFromMat `b'
     jl GetMatFromMat `V'
-    local coefnames `instdname' `inexogname' `=cond(`hascons', "_cons", "")'
-
     mat colnames `b' = `coefnames'
     mat colnames `V' = `coefnames'
     mat rownames `V' = `coefnames'
@@ -500,6 +486,9 @@ program define reghdfejl, eclass
   else local hascons = 0
 
   ereturn post `b' `V', depname(`depname') obs(`=`N'') buildfvinfo findomitted `=cond(`sample', "esample(`touse')", "")'
+
+  ereturn local wtype: copy local wtype
+  ereturn local wexp: copy local wexp
 
   ereturn scalar N_hdfe = 0`N_hdfe'
   jl, qui: SF_scal_save("`t'", sizedf[1])
@@ -624,9 +613,106 @@ program define reghdfejl, eclass
   Display, `diopts' `eformopts' level(`level') `noheader' `notable'
 end
 
+// translate a varlist into a StatsModels formula, translating factor terms directly when possible, fvrevar'ing otherwise
+cap program drop varlistS2J
+program define varlistS2J, rclass
+  syntax [varlist (ts fv default=none)] [if]
+  if `"`varlist'"'=="" exit
+
+  tempname termtab dummyrows freqs
+  mata `termtab' = J(0,3,"")
+
+  fvunab varlist: `varlist'
+  gettoken term varlist: varlist, bind
+  while "`term'"!="" {
+    local goodterm 1
+    tokenize `term', parse("#")
+    local _term `*'
+    local _term: list uniq _term
+    foreach factor of local _term {
+      if "`factor'" != "#" {
+        if regexm("`factor'", "^i(b([0-9]+)){0,1}\.(.*)$") {
+          mata `termtab' = `termtab' \ "i", `"`=cond(regexs(2)=="", "nothing", regexs(2))'"', "`=regexs(3)'"
+        }
+        else {
+          if substr(`"`factor'"',1,2)=="c." local factor = substr("`factor'", 3, .)
+          cap confirm var `factor'
+          if _rc {  // bad syntax; or "ib...." or ts op that can't be expressed with StatsModels.jl DummyCoding()
+            fvexpand `term' `if'
+            return local varnames `return(varnames)' `r(varlist)'
+            foreach var in `r(varlist)' {  // equivalent to fvrevar `r(varlist)' but a bit faster on big data sets
+              tempvar t
+              qui gen `t' = `var' `if'
+              return local vars `return(vars)' `t'
+              local formula `formula' `t'
+            }
+            local goodterm 0
+            continue, break
+          }
+          mata `termtab' = `termtab' \ "c", "", "`factor'"
+        }
+      }
+    }
+    if `goodterm' {
+      local formula `formula' `term'
+      local goodterms `goodterms' `term'
+    }
+    gettoken term varlist: varlist, bind
+  }
+  fvrevar `goodterms', list
+  return local vars `return(vars)' `r(varlist)'
+  return local varnames `return(varnames)' `r(varlist)'
+
+  mata `termtab' = uniqrows(`termtab')
+  mata `dummyrows' = selectindex(`termtab'[,1]:=="i")
+  mata st_global("return(DummyCodingargs)", invtokens(":" :+ `termtab'[`dummyrows',3]' :+ "=>DummyCoding(base=" :+ `termtab'[`dummyrows',2]' :+ "), "))
+  mata `dummyrows' = uniqrowsfreq(uniqrows(`termtab'[, 1\3])[,2], `freqs'=.)
+  cap mata st_local("dups", invtokens(`dummyrows'[selectindex(`freqs':>1)]'))
+  foreach dup in `dups' {  // any vars appearing with both i. and c.? (rare)
+    tempname t
+    local formula: subinstr local formula "c.`dup'" "c.`t'", word all
+    local formula: subinstr local formula "`dup'"   "`t'", word all
+    return local dfaliascmds `return(dfaliascmds)' df.`t' = df.`dup'; 
+    return local varnames `return(varnames)' `dup'
+    return local vars `return(vars)' `t'
+  }
+  
+  local formula: subinstr local formula "#" "&", all
+  local formula: subinstr local formula "i." "", all
+  local formula: subinstr local formula "c." "", all
+  return local formula: subinstr local formula " " " + ", all
+end
+
+
+// translate a pipe-delimited coefficient list back to Stata syntax, and replace temp vars with their names
+cap program drop varlistJ2S
+program define varlistJ2S, rclass
+  syntax, jlcoefnames(string) vars(string) varnames(string)
+  gettoken jlcoef jlcoefnames: jlcoefnames, parse("|")
+  return local hascons = "`jlcoef'"=="(Intercept)"
+  if `return(hascons)' gettoken jlcoef jlcoefnames: jlcoefnames, parse("|")
+  while "`jlcoef'"!="" {
+    if "`jlcoef'"!="|" {
+      tokenize `jlcoef', parse("&")
+      local cdot = cond("`2'"!="", "c.", "")
+      local stcoef
+      while "`1'"!="" {
+        if regexm("`1'", "^([^:&]*)(:(.*)){0,1}$") { // "[coef]" or "[coef]: [x]"
+          local stcoef `=cond("`stcoef'"=="","","`stcoef'#")'`=cond(regexs(3)!="","`=real(regexs(3))'.", "`cdot'")'`:word `:list posof "`=regexs(1)'" in vars' of `varnames''
+        }
+        macro shift
+      }
+      return local stcoefs `return(stcoefs)' `stcoef'
+    }
+    gettoken jlcoef jlcoefnames: jlcoefnames, parse("|")
+  }
+  if `return(hascons)' return local stcoefs `return(stcoefs)' _cons
+end
+
 * Expand nested expression like absorb(a#c.(b c)) without using fvunab, which apparently scans all vars for their levels, taking time
 // cap program drop ExpandAbsorb
 // program define ExpandAbsorb, rclass
+//   version 15
 //   while `"`0'"' != "" {
 //     gettoken car 0: 0, bind
 //     if regexm("`car'", "([^\(]*)\((.*)\)([^\)]*)") {
@@ -641,7 +727,7 @@ end
 
 cap program drop Display
 program define Display
-  version 16
+  version 15
   syntax [, Level(real `c(level)') noHEADer notable *]
 
   if !e(drop_singletons) di as err `"WARNING: Singleton observations not dropped; statistical significance is biased {browse "http://scorreia.com/reghdfe/nested_within_cluster.pdf":(link)}"'
@@ -696,4 +782,4 @@ end
 * 0.6.0 Added vce(bs)
 * 0.6.1 Bug fixes. Added interruptible option.
 * 0.6.2 Bug fixes. Add Kleibergen-Paap return value. Catch small option.
-* 0.6.3 Bug fixes, including [pw] not triggering robust. Bump to julia.ado 0.10.0.
+* 0.6.3 Bug fixes, including [pw] not triggering robust. Bump to julia.ado 0.10.0. Speed up handling of non-absorbed factor variables--don't fvrevar and then copy.

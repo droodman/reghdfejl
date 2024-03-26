@@ -2,6 +2,8 @@
 
 cap program drop partialhdfejl
 program define partialhdfejl
+  version 15
+
   syntax varlist [if] [in] [aw pw fw iw/], Absorb(string) [GENerate(string) PREfix(string) replace ITerations(integer 16000) gpu TOLerance(real 1e-8) compact INTERruptible]
 
   _assert `iterations'>0, msg("{cmdab:It:erations()} must be positive.") rc(198)
