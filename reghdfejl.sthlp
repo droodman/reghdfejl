@@ -43,7 +43,8 @@
 {synopt: {cmdab:a:bsorb}({it:absvars}, [{cmdab:save:fe}])}categorical variables representing the fixed effects to be absorbed{p_end}
 {synopt: {opth vce:(reghdfejl##model_opts:vcetype)}}{it:vcetype} may be {opt un:adjusted} (default), {opt r:obust}, {opt bs}/{opt boot:strap}, {opt cl:uster} {help fvvarlist} (allowing multi-way clustering){p_end}
 {synopt: {opth res:iduals(newvar)}}save regression residuals; required for postestimation "{it:predict <varname>, d}" {p_end}
-{synopt:{opt tol:erance(#)}}criterion for convergence. default is 1e-6{p_end}
+{synopt: {opth res:iduals(newvar)}}save regression residuals; required for postestimation "{it:predict <varname>, d}" {p_end}
+{synopt:{opt ivreg2}}call ivreg2 for IV estimation{p_end}
 {synopt:{opt iter:ate(#)}}maximum number of iterations; default is 16,000{p_end}
 {synopt:{opt nosamp:le}}will not create {it:e(sample)}, saving some space and speed{p_end}
 {synopt:{opt compact}}temporarily saves all data to disk in order to free memory{p_end}
@@ -86,8 +87,8 @@ cannot be of the form {it:i.y} though, only {it:#.y} (where # is a number){p_end
 can run ~10 times faster because it relies on the Julia program {browse "https://github.com/FixedEffects/FixedEffectModels.jl":FixedEffectsModel.jl},
 by Matthieu Gomez, which implements similar methods (Correia 2016).
 {cmd:reghdfejl} also fits instrumental variables models
-with two-stage least squares. In this capacitiy it is not as full-featured as {cmd:ivreghdfe}, because it does not (yet) work as a wrapper for 
-{cmd:ivreg2}.
+with two-stage least squares. In this capacity it is not by default as full-featured as {cmd:ivreghdfe}, because it does not work as a wrapper for 
+{cmd:ivreg2}. The {cmd:ivreg2} option of {cmd:reghdfejl} overrides that default, but then {cmd:reghdfejl} is no faster than {cmd:ivreghdfe}.
 
 {pstd}
 To run, {cmd:reghdfejl} requires that the Stata command {cmd:jl} be installed; "{stata ssc install julia}" should suffice. It also needs
@@ -137,7 +138,7 @@ useful when you have plenty of RAM, when the number of non-absorbed regressors i
 {cmd:reghdfejl} offers several novel features that can increase speed. The first is access to multithreading in Julia, even in 
 flavors of Stata that do not offer multiprocessing. The {opt threads(#)}
 option pertains to this feature. But it can only {it:reduce} the number of CPU threads Julia uses. The default number--and the 
-maximum--is set by the {browse "https://docs.julialang.org/en/v1/manual/multi-threading/":system environment variable JULIA_NUM_THREADS}. It is 
+maximum--is set when the Julia session inside Stata is started. It is 
 possible for the default to be too high as well as too low. If you set it high, then you can experiment using {opt threads(#)}. See 
 {help jl##threads:help jl} for more on determining and controlling the number of threads.
 
@@ -251,6 +252,12 @@ This option carries a small time cost but is required for subsequent calls to {c
 In general, low tolerances (1e-8 to 1e-14) return more accurate results, more slowly.
 
 {phang}
+{opt ivreg2} causes {cmd:reghdfejl} to work more like {cmd:ivreghdfe} when performing instrumental variables estimation. It calls Julia to partial
+fixed effects out of all other variables, and then passes the results to {stata ssc describe ivreg2:ivreg2}. This gives access to a much wider
+array of estimation options and weak identification diagnostics. However, because {cmd:ivreg2} dominates the run time, this is no faster than using
+{cmd:ivreghdfe}.
+
+{phang}
 {opth it:erations(#)}
 specifies the maximum number of iterations; the default is 16,000.
 
@@ -328,6 +335,9 @@ the resulting variable will always be of type {it:double}.{p_end}
 
 {phang}. {stata partialhdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(year occ_code) prefix(_) replace}{p_end}
 {phang}. {stata reghdfejl _ln_wage  _age _ttl_exp _tenure _not_smsa _south, cluster(year occ_code) nocons}  // same point estimates as in previous regression{p_end}
+
+{phang}. {stata reghdfejl ln_wage (age  = ttl_exp tenure) not_smsa south, absorb(year occ_code) cluster(year occ_code)}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
