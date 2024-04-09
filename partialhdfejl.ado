@@ -89,22 +89,22 @@ program define partialhdfejl
   local vars: list uniq vars
 
   jl PutVarsToDF `vars' if `touse', nomissing double
-  qui jl: size(df,1)
+  qui jl, norepl: size(df,1)
   _assert `r(ans)', rc(2001) msg(insufficient observations)
 
   if "`compact'" !="" drop _all
 
-  jl: p = partial_out(df, @formula(`:subinstr local varlist " " " + ", all' ~ 1 `feterms') `wtopt', tol=`tolerance', maxiter=`iterations' `methodopt');
+  jl, norepl: p = partial_out(df, @formula(`:subinstr local varlist " " " + ", all' ~ 1 `feterms') `wtopt', tol=`tolerance', maxiter=`iterations' `methodopt');
 
   if "`compact'"!="" {
-    jl: GC.gc();
+    jl, norepl: GC.gc();
     use `compactfile'
   }
 
   if `"`prefix'"' != "" local generate `prefix'`: subinstr local varlist " " " `prefix'", all'
     else if "`replace'"!="" {
       tempname t
-      jl: SF_scal_save("`t'", size(df)[1]);
+      jl, norepl: SF_scal_save("`t'", size(df)[1]);
       if `t' < _N {
         foreach var in `generate' {
           cap replace `var' = .
@@ -118,5 +118,5 @@ program define partialhdfejl
     label var `var' "Residuals"
   }
 
-  jl: df = p = nothing;
+  jl, norepl: df = p = nothing;
 end
