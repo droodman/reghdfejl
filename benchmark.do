@@ -19,7 +19,7 @@ qui reghdfe   y x1 x2, a(id1 id2) cluster(id1 id2)
 qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2)
 qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2) gpu
 
-set processors 8
+set processors 6
 qui areg      y x1 x2, a(id1) cluster(id1)
 qui reghdfe   y x1 x2, a(id1) cluster(id1)
 qui reghdfejl y x1 x2, a(id1) cluster(id1)

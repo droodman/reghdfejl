@@ -50,7 +50,6 @@
 {synopt:{opt compact}}temporarily saves all data to disk in order to free memory{p_end}
 {synopt:{opt threads(#)}}number of CPU threads Julia should use{p_end}
 {synopt:{opt gpu}}use NVIDIA or Apple Silicon GPU{p_end}
-{synopt:{opt inter:ruptible}}At small speed cost, allow Ctrl-Break or the like to stop estimation{p_end}
 {synopt:{opt l:evel(#)}}set confidence level; default is normally 95{p_end}
 {synopt:{it:display options}}{help ml##display_options:standard options} governing results display{p_end}
 {synoptline}
@@ -70,7 +69,6 @@ cannot be of the form {it:i.y} though, only {it:#.y} (where # is a number){p_end
 {synopt:{opt gen:erate(varlist)}}names for partialled-out results{p_end}
 {synopt:{opt pre:fix(string)}}prefix stub for partialled-out results{p_end}
 {synopt:{opt replace}}overwrite any existing variables identified by {opt gen:erate()} or {opt pre:fix()}{p_end}
-{synopt:{opt inter:ruptible}}At small speed cost, allow Ctrl-Break or the like to stop estimation{p_end}
 {synoptline}
 {p 4 6 2}Exactly one of {opt gen:erate()} and {opt pre:fix()} must be specified.
 
@@ -457,7 +455,7 @@ On a Mac with an M2 Pro chip--with 8 performance cores and 4 efficiency cores--t
 {phang}. qui areg      y x1 x2, a(id1) cluster(id1){p_end}
 {phang}t=490.93{p_end}
 
-{phang}. qui reghdfe   y x1 x2, a(id1) cluster(id1){p_end}
+{phang}. qui reghdfe   y x1 x2, a(id1) cluster(id1) dof(none){p_end}
 {phang}t=68.74{p_end}
 
 {phang}. qui reghdfejl y x1 x2, a(id1) cluster(id1){p_end}
@@ -466,7 +464,7 @@ On a Mac with an M2 Pro chip--with 8 performance cores and 4 efficiency cores--t
 {phang}. qui reghdfejl y x1 x2, a(id1) cluster(id1) gpu{p_end}
 {phang}t=15.92{p_end}
 
-{phang}. qui reghdfe   y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
+{phang}. qui reghdfe   y x1 x2, a(id1 id2) cluster(id1 id2) dof(none){p_end}
 {phang}t=315.05{p_end}
 
 {phang}. qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
@@ -475,28 +473,28 @@ On a Mac with an M2 Pro chip--with 8 performance cores and 4 efficiency cores--t
 {phang}. qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2) gpu{p_end}
 {phang}t=24.48{p_end}
 
-{phang}. set processors 8{p_end}
+{phang}. set processors 6{p_end}
 
 {phang}. qui areg      y x1 x2, a(id1) cluster(id1){p_end}
-{phang}t=99.43 {p_end}
+{phang}t=99.24 {p_end}
 
-{phang}. qui reghdfe   y x1 x2, a(id1) cluster(id1){p_end}
-{phang}t=44.15{p_end}
+{phang}. qui reghdfe   y x1 x2, a(id1) cluster(id1) dof(none){p_end}
+{phang}t=44.69{p_end}
 
 {phang}. qui reghdfejl y x1 x2, a(id1) cluster(id1){p_end}
-{phang}t=13.38{p_end}
+{phang}t=14.00{p_end}
 
 {phang}. qui reghdfejl y x1 x2, a(id1) cluster(id1) gpu{p_end}
-{phang}t=12.20{p_end}
+{phang}t=12.23{p_end}
 
-{phang}. qui reghdfe   y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
-{phang}t=238.35{p_end}
+{phang}. qui reghdfe   y x1 x2, a(id1 id2) cluster(id1 id2) dof(none){p_end}
+{phang}t=243.90{p_end}
 
 {phang}. qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
-{phang}t=24.80{p_end}
+{phang}t=27.88{p_end}
 
 {phang}. qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2) gpu{p_end}
-{phang}t=20.100{p_end}
+{phang}t=19.77{p_end}
 
 {title:Author}
 
