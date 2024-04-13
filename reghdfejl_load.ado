@@ -26,7 +26,6 @@ program define reghdfejl_load
 
     local gpulib = cond(c(os)=="MacOSX", "Metal", "CUDA")
     local blaslib = cond(c(os)=="MacOSX", "AppleAccelerate", "BLISBLAS")
-    qui jl SetEnv reghdfejl
     jl AddPkg `blaslib'
     jl AddPkg `gpulib'
     jl AddPkg StableRNGs
@@ -34,7 +33,7 @@ program define reghdfejl_load
     jl AddPkg GLFixedEffectModels, minver(0.5.3)
     jl AddPkg Distributions, minver(0.25.107)
     jl AddPkg Vcov, minver(0.8.1)
-    _jl: using `blaslib', `gpulib', FixedEffectModels, Vcov, StableRNGs, Distributed, DataFrames, GLFixedEffectModels, Distributions, GLM;
+    _jl: using `blaslib', `gpulib', FixedEffectModels, Vcov, StableRNGs, Distributed, DataFrames, GLFixedEffectModels, Distributions;
     global reghdfejl_loaded 1
   }
 end

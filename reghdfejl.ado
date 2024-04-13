@@ -28,9 +28,11 @@
 cap program drop reghdfejl
 program define reghdfejl
   qui jl GetEnv
+  local env `r(env)'
+  qui jl SetEnv reghdfejl
   cap noi _reghdfejl `0'
   if _rc & "`noncompactfile'"!="" use `noncompactfile'
-  qui jl SetEnv `r(env)'
+  qui jl SetEnv `env'
 end
 
 cap program drop _reghdfejl
@@ -503,8 +505,8 @@ program define _reghdfejl, eclass
     mat `M' = e(b)
     local colnames: colnames `M'
     _jl: `D' = Dict(x=>y for (x,y) in zip(split("`allpartialled'"), split("`allvars'")));  // mapping from partialled, revar'D var names for ivreg2 back to display names
-    _jl: st_local("colnames", join(getindex.(Ref(`D'), split("`colnames'")), " "));
-    mat colnames `M' = `colnames'
+    _jl: join(getindex.(Ref(`D'), split("`colnames'")), " ")
+    mat colnames `M' = `r(ans)'
     ereturn repost b=`M', rename
     foreach mat in S W {
       cap mat `M' = e(`mat')
@@ -515,8 +517,8 @@ program define _reghdfejl, eclass
     foreach macro in depvar depvar0 depvar1 instd instd0 instd1 insts insts0 insts1 exexog exexog0 exexog1 inexog inexog0 inexog1 partial partial0 partial1 {
       local t `e(`macro')'
       if "`t'"!="" {
-        _jl: st_local("t", join(getindex.(Ref(`D'), split("`t'")), " "));
-        ereturn local `macro' `t'
+        _jl: join(getindex.(Ref(`D'), split("`t'")), " ")
+        ereturn local `macro' `r(ans)'
       }
     }
 
@@ -565,7 +567,7 @@ program define _reghdfejl, eclass
       qui _jl: nworkers()
       if `procs' != `r(ans)' {
         _jl: rmprocs(procs());
-        if `procs'>1 _jl:  addprocs(`procs', exeflags="-t1");  /* single-threaded workers */                                                                  ///
+        if `procs'>1 _jl:  addprocs(`procs', exeflags="-t1 --project=$(Base.active_project())");  /* single-threaded workers */                                                                  ///
                           @everywhere using `=cond(c(os)=="MacOSX", "Metal, AppleAccelerate", "CUDA, BLISBLAS")', DataFrames, FixedEffectModels;
       }
 
@@ -648,12 +650,14 @@ program define _reghdfejl, eclass
     _jl: `b' = coef(m);
     _jl: `V' = iszero(0`bs') ? vcov(m) : Vbs;
     _jl: `V' = replace!(`V', NaN=>0.);
-    _jl: st_local("coefnames", join(coefnames(m), "|"));
+    _jl: join(coefnames(m), "|")
+    local coefnames `r(ans)'
     varlistJ2S, jlcoefnames(`coefnames') vars(`inexogvars' `instdvars') varnames(`inexognames' `instdnames')
     local coefnames `r(stcoefs)'
     _jl: `I' = [s=="_cons" ? 3 : s in split("`instdnames'") ? 1 : 2 for s in split("`coefnames'")] |> sortperm;  // order endog-exog-cons
     _jl: `b' = collect(`b'[`I']'); `V' = `V'[`I',`I'];
-    _jl: st_local("coefnames", join(split("`coefnames'")[`I'], " "));
+    _jl: join(split("`coefnames'")[`I'], " ")
+    local coefnames `r(ans)'
     jl GetMatFromMat `b'
     jl GetMatFromMat `V'
     mat colnames `b' = `coefnames'
