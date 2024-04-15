@@ -38,8 +38,3 @@ reghdfejl ln_wage grade age ttl_exp tenure (not_smsa = south), absorb(idcode yea
 reghdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(year occ_code) vce(bs, cluster(occ_code) reps(1000) seed(42) procs(4))
 
 ```
-
-## Development plans
-* Expand non-absorbed factor variables in Julia rather than Stata, to reduce data transfer.
-* Possibly make it a wrapper for `ivreg2` like `ivreghdfe`.
-
