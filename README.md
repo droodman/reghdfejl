@@ -13,7 +13,7 @@ Install from SSC with
 ```
 ssc install reghdfejl
 ```
-Sometimes SSC will lag a bit behind this repository. To get the latest version from here, do:
+Sometimes SSC will lag behind this repository. To get the latest version from here, do:
 ```
 net install reghdfejl, replace from(https://raw.github.com/droodman/reghdfejl/v[X.Y.Z])
 ```
