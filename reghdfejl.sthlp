@@ -75,7 +75,7 @@ cannot be of the form {it:i.y} though, only {it:#.y} (where # is a number){p_end
 {p 4 6 2}Exactly one of {opt gen:erate()} and {opt pre:fix()} must be specified.
 
 {p 4 6 2}{cmd:vce(bootstrap,} {it:bsoptions}{cmd:)} accepts these standard {help bootstrap:bootstrap options}: {opt r:obust}, {opt cl:uster(varname)}, {opt seed(#)}, {opt reps(#)}, {opt mse}, 
-{opt size(#)}. In addition it accepts a {opt proc:s()} option to accelerate the bootstrap through multitasking.
+{opt size(#)}, {cmdab:sav:ing(}{it:filename} {cmd:[, {ul:doub}le replace])}. In addition it accepts a {opt proc:s()} option to accelerate the bootstrap through multitasking.
 
 
 {marker description}{...}
@@ -231,12 +231,14 @@ are correlated within groups. Multi-way-clustering is allowed.
 {cmd:vce(bootstrap,} {it:bsoptions}{cmd:)}} and {cmd:vce(bs,} {it:bsoptions}{cmd:)} are synonyms. They request estimation of standard errors using the non-parametric or "pairs" 
 bootstrap. In expectation, {cmd: reghdfejl ..., ... vce(bs,} {it:bsoptions}{cmd:)} should return the same results as {cmd: bs,} {it:bsoptions}{cmd:: reghdfejl ..., ...}. But the 
 first is faster because it avoids copying data from Stata to Julia on every replication and can exploit mulitasking. {it:bsoptions} 
-may include any of the following suboptions: {opt r:obust}, {opt cl:uster(varname)}, {opt seed(#)}, {opt reps(#)}, {opt mse}, {opt size(#)}, and 
+may include any of the following suboptions: {opt r:obust}, {opt cl:uster(varname)}, {opt seed(#)}, {opt reps(#)}, {opt mse}, {opt size(#)}, 
+{cmdab:sav:ing(}{it:filename} {cmd:[, {ul:doub}le replace])}, and 
 {opt proc:s(#)}. All but the last are standard {help bootstrap:bootstrap options}. The last instructs {cmd:reghdfejl} to launch several
 copies of Julia in order to run the bootstrap in parallel. The {opt proc:s(#)} suboption is semantically distinct from {cmd:reghdfejl}'s {opt threads()}
-option. The latter triggers low-level multitasking: the Julia package FixedEffectModels.jl spreads certain loops across multiple threads. The former instead runs 
-multiple copies of Julia, each of which loads and runs FixedEffectModels.jl, on just one thread. This set-up is efficient for "embarrassingly parallel"
-tasks such as bootstrapping. While the options are implemented in different ways, the principles governing the optimal number to choose are the 
+option. The latter triggers low-level multitasking: the Julia package FixedEffectModels.jl spreads certain loops across multiple threads within one Julia 
+instance. The former instead runs 
+multiple copies of Julia, each of which loads and runs FixedEffectModels.jl, on just one thread each. While 
+the options are implemented in different ways, the principles governing the optimal number of threads and processes are the 
 same. See {help jl##threads:help jl}.
 
 {pmore}

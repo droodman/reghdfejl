@@ -570,42 +570,40 @@ program define _reghdfejl, eclass
     local hasclust = "`bscluster'"!=""
 
     qui _jl: nworkers()
-    if `procs' != `r(ans)' {
-      _jl: rmprocs(procs());
-      if `procs'>1 _jl:  addprocs(`procs', exeflags="-t1 --project=$(Base.active_project())");  /* single-threaded workers */     ///
-                        @everywhere using `=cond(c(os)=="MacOSX", "Metal, AppleAccelerate", "CUDA, BLISBLAS")', DataFrames, FixedEffectModels;
-    }
+    if      `procs' > `r(ans)' _jl: addprocs(`procs'-`r(ans)'+(`r(ans)'==1), exeflags="-t1 --project=$(Base.active_project())");  /* single-threaded workers */     ///
+                                    @everywhere using `=cond(c(os)=="MacOSX", "Metal, AppleAccelerate", "CUDA, BLISBLAS")', DataFrames, FixedEffectModels;
+    else if `procs' < `r(ans)' _jl: rmprocs(workers()[end-(`r(ans)'-`procs'-(`procs'>1)):end]);
 
     _jl: @everywhere using StableRNGs, SharedArrays;
     _jl: @everywhere module reghdfejlbs end;  // worker-specific storage
-    _jl: /*reghdfejl.*/saving = SharedMatrix{Float64}(`reps', k);
-    _jl: @everywhere reghdfejlbs.rng = StableRNG(`=runiformint(0, 1e6)' * myid() + 42);  // different, ~deterministic seeds for each worker (but myid()'s could change)
-    _jl: reghdfejl.data = SharedMatrix(Matrix(df)); /*reghdfejl.*/_df = DataFrame(reghdfejl.data, names(df))
+    if "`saving'"!="" _jl: _reghdfejl_saving = SharedMatrix{Float64}(`reps', k);
+    _jl: @everywhere reghdfejlbs.rng = StableRNG(`=runiformint(0, 1e6)' * findfirst(==(myid()), procs()) + 42);  // different, ~deterministic seeds for each worker
+    _jl: _reghdfejl_df = DataFrame(SharedMatrix(Matrix(df)), names(df))  // copy of df shareable across workers
 
     if `hasclust' {
-      _jl: reghdfejl.s = Set(df.`bscluster');                                                                   ///
-           /*reghdfejl.*/Nclust = length(reghdfejl.s);
-      _jl: /*reghdfejl.*/_id = getindex.(Ref(Dict(zip(reghdfejl.s, 1:/*reghdfejl.*/Nclust))), df.`bscluster'); /* ordinalize cluster id, in Main so workers can access*/ 
+      _jl: reghdfejl.s = Set(df.`bscluster'); _reghdfejl_Nclust = length(reghdfejl.s);
+      _jl: _reghdfejl_id = getindex.(Ref(Dict(zip(reghdfejl.s, 1:_reghdfejl_Nclust))), df.`bscluster'); /* ordinalize cluster id, in Main so workers can access*/
+      _jl: reghdfejl.s = nothing
     }
-    else
-      _jl: /*reghdfejl.*/Nclust = size(df,1);                                                                        ///
-           reghdfejlbs._id = Colon();
+    else _jl: _reghdfejl_Nclust = size(df,1); reghdfejlbs.id = Colon();
 
-    _jl: /*reghdfejl.*/bssize = iszero(0`size') ? /*reghdfejl.*/Nclust : 0`size'; reghdfejl.reps = `reps'
-    _jl: Distributed.remotecall_eval(Main, procs(), :(reghdfejlbs.bsweights = Vector{Int}(undef, $(/*reghdfejl.*/Nclust))));  ///
-         retval = @distributed (+) for m in 1:reghdfejl.reps                                                      ///
-           fill!(reghdfejlbs.bsweights, 0);                                                                       ///
-           @inbounds for i in 1:/*reghdfejl.*/bssize                                                                  ///
-             reghdfejlbs.bsweights[rand(reghdfejlbs.rng, 1:/*reghdfejl.*/Nclust)] += 1                                ///
-           end;                                                                                                   ///
-           /*reghdfejl.*/_df.__reghdfejl_bswt = reghdfejlbs.bsweights[/*reghdfejl.*/_id];                                   ///
-           `=cond("`wtopt'"!="", "/*reghdfejl.*/_df.__reghdfejl_bswt .*= /*reghdfejl.*/_df.`wtvar';", "")'                ///
-           /*reghdfejl.*/saving[m,:] = b = coef(`nl'reg(_df, f `familyopt' `linkopt', weights=:__reghdfejl_bswt; `methodopt' `threadsopt' `sepopt' `tolopt')); ///
-           b*b'                                                                                                   ///
-         end;                                                                                                     ///
-         reghdfejl.Vbs = sum(/*reghdfejl.*/saving; dims=1);                                                           ///
-         reghdfejl.Vbs = (retval .- reghdfejl.Vbs' ./ reghdfejl.reps .* reghdfejl.Vbs) ./ (reghdfejl.reps - `="`mse'"==""')
-//     _jl: @everywhere reghdfejl.bsweights = nothing  Call clear!()
+    _jl: _reghdfejl_bssize = iszero(0`size') ? _reghdfejl_Nclust : 0`size'; reghdfejl.reps = `reps'
+    _jl: Distributed.remotecall_eval(Main, procs(), :(reghdfejlbs.wt = Vector{Int}(undef, $(_reghdfejl_Nclust))));  ///
+         retval = @distributed (+) for m in 1:reghdfejl.reps                                                        ///
+           fill!(reghdfejlbs.wt, 0);                                                                                ///
+           @inbounds for i in 1:_reghdfejl_bssize                                                                   ///
+             reghdfejlbs.wt[rand(reghdfejlbs.rng, 1:_reghdfejl_Nclust)] += 1                                        ///
+           end;                                                                                                     ///
+           _reghdfejl_df.__reghdfejl_bswt = reghdfejlbs.wt[_reghdfejl_id];                                          ///
+           `=cond("`wtopt'"!="", "_reghdfejl_df.__reghdfejl_bswt .*= _reghdfejl_df.`wtvar';", "")'                  ///
+           b = coef(`nl'reg(_reghdfejl_df, f `familyopt' `linkopt', weights=:__reghdfejl_bswt; `methodopt' `threadsopt' `sepopt' `tolopt')); ///
+           `=cond("`saving'"!="","_reghdfejl_saving[m,:] = b;", "")'                                                ///
+           [b, b*b']                                                                                                ///
+         end;                                                                                                       ///
+         reghdfejl.Vbs = retval[1];                                                                                 ///
+         reghdfejl.Vbs = (retval[2] .- reghdfejl.Vbs' ./ reghdfejl.reps .* reghdfejl.Vbs) ./ (reghdfejl.reps - `="`mse'"==""'); ///
+         Distributed.clear!((:rng, :id, :wt); mod=reghdfejlbs);                                                     ///
+         _reghdfejl_id = _reghdfejl_df = nothing;
   }
 
   if "`verbose'"=="" _jl: df = nothing;  // yield memory
@@ -689,7 +687,8 @@ program define _reghdfejl, eclass
           qui gen `double' `savvar' = .
           label var `savvar' "_b[`coefname']"
         }
-        jl GetVarsFromMat `savvars', source(view(/*reghdfejl.*/saving,:,`I')) replace
+        jl GetVarsFromMat `savvars', source(view(_reghdfejl_saving,:,`I')) replace
+        _jl: _reghdfejl_saving = nothing
         save `saving', replace
       }
       cwf `currentframe'
@@ -763,7 +762,7 @@ program define _reghdfejl, eclass
   if 0`bs' {
     ereturn local vce bootstrap
     ereturn local vcetype Bootstrap
-    _jl: st_numscalar("`t'", Nclust);
+    _jl: st_numscalar("`t'", _reghdfejl_Nclust);
     ereturn scalar N_clust = `t'
     ereturn scalar N_clust1 = `t'
     if "`bscluster'"!="" {
@@ -883,7 +882,7 @@ program define Display
 
   if "`e(vce)'"=="bootstrap" & "`e(cluster)'"!="" {
     local N_clust = strtrim(string(e(N_clust),"%10.0gc"))
-    di _col(`=50-strlen("`N_clust'`e(cluster)'")') as txt "(Replications based on " as res "`N_clust'" as txt " clusters in " as res e(cluster) as txt ")"
+    di _col(`=42-strlen("`N_clust'`e(cluster)'")') as txt "(Replications based on " as res "`N_clust'" as txt " clusters in " as res e(cluster) as txt ")"
   }
 
   if "`table'"=="" ereturn display, level(`level') `options'
