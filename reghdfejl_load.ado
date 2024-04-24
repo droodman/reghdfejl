@@ -1,10 +1,10 @@
-*! reghdfejl_load 0.6.2 15 February 2024
+*! reghdfejl_load 1.0.0 23 April 2024
 
 cap program drop reghdfejl_load
 program define reghdfejl_load
   version 15
   
-  local JLVERSION 1.0.0
+  local JLVERSION 1.0.1
 
   if `"$reghdfejl_loaded"'=="" {
     cap jl version
@@ -34,6 +34,7 @@ program define reghdfejl_load
     jl AddPkg Distributions, minver(0.25.107)
     jl AddPkg Vcov, minver(0.8.1)
     _jl: using `blaslib', `gpulib', FixedEffectModels, Vcov, StableRNGs, Distributed, DataFrames, GLFixedEffectModels, Distributions;
+    _jl: module reghdfejl end;  // name space for the package
     global reghdfejl_loaded 1
   }
 end

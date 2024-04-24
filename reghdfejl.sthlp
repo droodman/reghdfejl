@@ -150,7 +150,11 @@ copies of Julia are launched for parallelization.
 
 {pstd}
 A final new feature is access to GPU-based computation. The {cmd:gpu} specifies the use of NVIDIA or Apple Silicon 
-GPUs for computation. Typically this modestly increases speed.
+GPUs for computation. Typically this modestly increases speed. On non-Apple computers, {cmd:reghdfejl} installs the latest 
+version of the Julia package CUDA.jl, which currently requires CUDA drivers 11.0 or later. (CUDA is NVIDIA's programming
+interface for GPUs.) You can visit the 
+{browse "https://developer.nvidia.com/cuda-downloads":CUDA download site} for the latest drivers.
+
 
 {pstd}
 The command {cmd:reghdfejl mask} redirects all {cmd:reghdfe} calls to {cmd:reghdfejl}. {cmd:reghdfejl unmask} stops the redirection. This is useful is when using other Stata packages that call {cmd:reghdfe}, such as 
