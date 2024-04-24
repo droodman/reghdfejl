@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.0 12 April 2024
+*! reghdfejl 1.0.1 24 April 2024
 
 // The MIT License (MIT)
 //
@@ -895,6 +895,7 @@ program define Display
 end
 
 * Version history
+* 1.0.1 Added vce(bs, saving()) supoption. Made rng seeds more deterministic. Refined the bootstrap code.
 * 0.3.0 Added support for absorbing string vars and clustering on interactions
 * 0.3.1 Added compact option
 * 0.3.2 Much better handling of interactions. Switched to BLISBLAS.jl.
