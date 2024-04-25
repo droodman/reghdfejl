@@ -896,6 +896,7 @@ end
 
 * Version history
 * 1.0.1 Added vce(bs, saving()) supoption. Made rng seeds more deterministic. Refined the bootstrap code. Fixed crash in varlistJ2S.
+* 1.0.0 Add ivreg2 mode. Make compatible with jl 1.0.0.
 * 0.3.0 Added support for absorbing string vars and clustering on interactions
 * 0.3.1 Added compact option
 * 0.3.2 Much better handling of interactions. Switched to BLISBLAS.jl.
