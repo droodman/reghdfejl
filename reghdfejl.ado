@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.1 24 April 2024
+*! reghdfejl 1.0.1 25 April 2024
 
 // The MIT License (MIT)
 //
@@ -837,7 +837,7 @@ program define varlistJ2S, rclass
       return local stcoefs `return(stcoefs)' _cons
     }
     else if "`jlcoef'"!="|" {
-      tokenize `jlcoef', parse("&")
+      tokenize `jlcoef', parse("& ")
       local cdot = cond("`2'"!="", "c.", "")
       local stcoef
       while "`1'"!="" {
@@ -895,7 +895,7 @@ program define Display
 end
 
 * Version history
-* 1.0.1 Added vce(bs, saving()) supoption. Made rng seeds more deterministic. Refined the bootstrap code.
+* 1.0.1 Added vce(bs, saving()) supoption. Made rng seeds more deterministic. Refined the bootstrap code. Fixed crash in varlistJ2S.
 * 0.3.0 Added support for absorbing string vars and clustering on interactions
 * 0.3.1 Added compact option
 * 0.3.2 Much better handling of interactions. Switched to BLISBLAS.jl.
