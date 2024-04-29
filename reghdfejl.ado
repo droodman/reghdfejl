@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.1 25 April 2024
+*! reghdfejl 1.0.2 29 April 2024
 
 // The MIT License (MIT)
 //
@@ -25,7 +25,6 @@
 
 * Version history at bottom
 
-cap program drop reghdfejl
 program define reghdfejl
   qui jl GetEnv
   local env `r(env)'
@@ -35,7 +34,6 @@ program define reghdfejl
   qui jl SetEnv `env'
 end
 
-cap program drop _reghdfejl
 program define _reghdfejl, eclass
   version 15
 
@@ -827,7 +825,7 @@ end
 
 
 // translate a pipe-delimited coefficient list back to Stata syntax, and replace temp vars with their names
-cap program drop varlistJ2S
+
 program define varlistJ2S, rclass
   syntax, jlcoefnames(string) vars(string) varnames(string)
   gettoken jlcoef jlcoefnames: jlcoefnames, parse("|")
@@ -837,11 +835,11 @@ program define varlistJ2S, rclass
       return local stcoefs `return(stcoefs)' _cons
     }
     else if "`jlcoef'"!="|" {
-      tokenize `jlcoef', parse("& ")
+      tokenize `jlcoef', parse("&")
       local cdot = cond("`2'"!="", "c.", "")
       local stcoef
       while "`1'"!="" {
-        if regexm("`1'", "^([^:&]*)(:(.*)){0,1}$") {  // "[coef]" or "[coef]: [x]"
+        if regexm(strtrim("`1'"), "^([^:&]*)(:(.*)){0,1}$") {  // "[coef]" or "[coef]: [x]"
           local stcoef `=cond("`stcoef'"=="","","`stcoef'#")'`=cond(regexs(3)!="","`=real(regexs(3))'.", "`cdot'")'`:word `:list posof "`=regexs(1)'" in vars' of `varnames''
         }
         macro shift
@@ -852,7 +850,6 @@ program define varlistJ2S, rclass
   }
 end
 
-cap program drop Display
 program define Display
   version 15
   syntax [, Level(real `c(level)') noHEADer notable *]
@@ -895,10 +892,11 @@ program define Display
 end
 
 * Version history
-* 1.0.1 Added vce(bs, saving()) supoption. Made rng seeds more deterministic. Refined the bootstrap code. Fixed crash in varlistJ2S.
+* 1.0.2 Bug fix for 1.0.1 bug fix.
+* 1.0.1 Add vce(bs, saving()) suboption. Made rng seeds more deterministic. Refined the bootstrap code. Fix crash in varlistJ2S.
 * 1.0.0 Add ivreg2 mode. Make compatible with jl 1.0.0.
-* 0.3.0 Added support for absorbing string vars and clustering on interactions
-* 0.3.1 Added compact option
+* 0.3.0 Add support for absorbing string vars and clustering on interactions
+* 0.3.1 Add compact option
 * 0.3.2 Much better handling of interactions. Switched to BLISBLAS.jl.
 * 0.3.3 Fixed bugs in handling of interactions and constant term
 * 0.4.0 Added mask and unmask
