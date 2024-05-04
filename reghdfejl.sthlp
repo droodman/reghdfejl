@@ -348,7 +348,7 @@ the resulting variable will always be of type {it:double}.{p_end}
 {phang}. {stata partialhdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(year occ_code) prefix(_) replace}{p_end}
 {phang}. {stata reghdfejl _ln_wage  _age _ttl_exp _tenure _not_smsa _south, cluster(year occ_code) nocons}  // same point estimates as in previous regression{p_end}
 
-{phang}. {stata reghdfejl ln_wage (age  = ttl_exp tenure) not_smsa south, absorb(year occ_code) cluster(year occ_code)}{p_end}
+{phang}. {stata reghdfejl ln_wage (age  = ttl_exp tenure) not_smsa south, absorb(year occ_code) cluster(year occ_code)}  // IV estimation{p_end}
 
 
 {marker results}{...}

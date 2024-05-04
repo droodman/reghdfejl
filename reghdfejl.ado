@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.2 29 April 2024
+*! reghdfejl 1.0.3 3 May 2024
 
 // The MIT License (MIT)
 //
@@ -24,7 +24,7 @@
 
 
 * Version history at bottom
-
+cap program drop reghdfejl
 program define reghdfejl
   qui jl GetEnv
   local env `r(env)'
@@ -34,6 +34,7 @@ program define reghdfejl
   qui jl SetEnv `env'
 end
 
+cap program drop _reghdfejl
 program define _reghdfejl, eclass
   version 15
 
@@ -513,8 +514,8 @@ program define _reghdfejl, eclass
     mat `M' = e(b)
     local colnames: colnames `M'
     _jl: reghdfejl.D = Dict(x=>y for (x,y) in zip(split("`allpartialled'"), split("`allvars'")));  // mapping from partialled, revar'D var names for ivreg2 back to display names
-    _jl: join(getindex.(Ref(reghdfejl.D), split("`colnames'")), " ")
-    mat colnames `M' = `r(ans)'
+    _jl: st_global("reghdfejl_ans", join(getindex.(Ref(reghdfejl.D), split("`colnames'")), " "))
+    mat colnames `M' = $reghdfejl_ans
     ereturn repost b=`M', rename
     foreach mat in S W {
       cap mat `M' = e(`mat')
@@ -525,8 +526,8 @@ program define _reghdfejl, eclass
     foreach macro in depvar depvar0 depvar1 instd instd0 instd1 insts insts0 insts1 exexog exexog0 exexog1 inexog inexog0 inexog1 partial partial0 partial1 {
       local t `e(`macro')'
       if "`t'"!="" {
-        _jl: join(getindex.(Ref(reghdfejl.D), split("`t'")), " ")
-        ereturn local `macro' `r(ans)'
+        _jl: st_global("reghdfejl_ans", join(getindex.(Ref(reghdfejl.D), split("`t'")), " "))
+        ereturn local `macro' $reghdfejl_ans
       }
     }
 
@@ -651,19 +652,22 @@ program define _reghdfejl, eclass
     _jl: reghdfejl.b = coef(m);
     _jl: reghdfejl.V = iszero(0`bs') ? vcov(m) : reghdfejl.Vbs;
     _jl: reghdfejl.V = replace!(reghdfejl.V, NaN=>0.);
-    _jl: join(coefnames(m), "|")
-    local coefnames `r(ans)'
-    varlistJ2S, jlcoefnames(`coefnames') vars(`inexogvars' `instdvars') varnames(`inexognames' `instdnames')
-    local coefnames `r(stcoefs)'
-    _jl: `I' = [s=="_cons" ? 3 : s in split("`instdnames'") ? 1 : 2 for s in split("`coefnames'")] |> sortperm;  // order endog-exog-cons
-    _jl: reghdfejl.b = collect(reghdfejl.b[`I']'); reghdfejl.V = reghdfejl.V[`I',`I'];
-    _jl: join(split("`coefnames'")[`I'], " ")
-    local coefnames `r(ans)'
+    _jl: st_global("reghdfejl_ans", join(coefnames(m), "|"))
+    varlistJ2S, jlcoefnames($reghdfejl_ans) vars(`inexogvars' `instdvars') varnames(`inexognames' `instdnames')
+    global reghdfejl__coefnames `r(stcoefs)'
+    global reghdfejl__instdnames `instdnames'
+    _jl: reghdfejl.coefnames = "reghdfejl__coefnames" |> st_global |> split
+    _jl: `I' = [s=="_cons" ? 3 : s in split(st_global("reghdfejl__instdnames")) ? 1 : 2 for s in reghdfejl.coefnames] |> sortperm;  // order endog-exog-cons
+    _jl: reghdfejl.b = collect(reghdfejl.b[`I']')
+    _jl: reghdfejl.V = reghdfejl.V[`I',`I'];
+    _jl: st_global("reghdfejl__coefnames", join(reghdfejl.coefnames[`I'], " "))
     jl GetMatFromMat `b', source(reghdfejl.b)
     jl GetMatFromMat `V', source(reghdfejl.V)
-    mat colnames `b' = `coefnames'
-    mat colnames `V' = `coefnames'
-    mat rownames `V' = `coefnames'
+    mat colnames `b' = $reghdfejl__coefnames
+    mat colnames `V' = $reghdfejl__coefnames
+    mat rownames `V' = $reghdfejl__coefnames
+    global reghdfejl__coefnames
+    global reghdfejl__instdnames
 
     forvalues i=1/`:word count `coefnames'' {
       if `V'[`i',`i']==0 di as txt "note: `:word `i' of `coefnames'' omitted because of collinearity"
@@ -892,6 +896,7 @@ program define Display
 end
 
 * Version history
+* 1.0.3 Fix crashes with 100s of non-absorbed regressors
 * 1.0.2 Bug fix for 1.0.1 bug fix.
 * 1.0.1 Add vce(bs, saving()) suboption. Made rng seeds more deterministic. Refined the bootstrap code. Fix crash in varlistJ2S.
 * 1.0.0 Add ivreg2 mode. Make compatible with jl 1.0.0.
