@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.3 3 May 2024
+*! reghdfejl 1.0.4 14 May 2024
 
 // The MIT License (MIT)
 //
@@ -24,8 +24,9 @@
 
 
 * Version history at bottom
-cap program drop reghdfejl
+
 program define reghdfejl
+  version 15
   qui jl GetEnv
   local env `r(env)'
   qui jl SetEnv reghdfejl
@@ -393,10 +394,17 @@ program define _reghdfejl, eclass
           tokenize `term', parse("#")
           local _term `*'
           local _term: list uniq _term
+          local newterm
           foreach factor of local _term {
-            if "`factor'" != "#" {
-              if regexm("`factor'", "^i(b([0-9]+)){0,1}\.(.*)$") {
-                mata `termtab' = `termtab' \ "i", `"`=cond(regexs(2)=="", "nothing", regexs(2))'"', "`=regexs(3)'"
+            if "`factor'" == "#" local newterm `newterm'#
+            else {
+              if regexm("`factor'", "^i\.(.*)$") {
+                mata `termtab' = `termtab' \ "i", "nothing", "`=regexs(1)'"
+                local newterm `newterm'`=regexs(1)'  // strip i. prefix
+              }
+              else if regexm("`factor'", "^i(b([0-9]+))\.(.*)$") {
+                mata `termtab' = `termtab' \ "i", "`=regexs(2)'", "`=regexs(3)'"
+                local newterm `newterm'`=regexs(3)'  // strip ibX. prefix
               }
               else {
                 if substr(`"`factor'"',1,2)=="c." local factor = substr("`factor'", 3, .)
@@ -414,12 +422,13 @@ program define _reghdfejl, eclass
                   continue, break
                 }
                 mata `termtab' = `termtab' \ "c", "", "`factor'"
+                local newterm `newterm'`factor'
               }
             }
           }
           if `goodterm' {
-            local `varset'formula ``varset'formula' `term'
-            local goodterms `goodterms' `term'
+            local `varset'formula ``varset'formula' `newterm'
+            local goodterms `goodterms' `newterm'
           }
           gettoken term varlist: varlist, bind
         }
@@ -443,11 +452,9 @@ program define _reghdfejl, eclass
         }
         
         local `varset'formula: subinstr local `varset'formula "#" "&", all
-        local `varset'formula: subinstr local `varset'formula "i." "", all
-        local `varset'formula: subinstr local `varset'formula "c." "", all
         local `varset'formula: subinstr local `varset'formula " " " + ", all
       }
-     }
+    }
   }
 
   local vars `depvars' `inexogvars' `instdvars' `instsvars' `_cluster' `wtvar' `absorbvars' `bscluster'
@@ -467,7 +474,7 @@ program define _reghdfejl, eclass
   jl PutVarsToDF `vars' `iftouse', nomissing doubleonly nolabel  // put all vars in Julia DataFrame named df; making it a global makes it visible to workers, for bs
   _jl: `dfaliascmds';
 
-  if "`verbose'"!="" _jl: df
+  if "`verbose'"!="" jl: df
 
   qui _jl: size(df,1)
   _assert `r(ans)', rc(2001) msg(insufficient observations)
@@ -554,7 +561,7 @@ program define _reghdfejl, eclass
   if "`verbose'"!="" {
     di `"`flinejl'"'
     di `"`cmdlinejl'"'
-    _jl, `interruptible': m = `cmdlinejl'
+    jl, `interruptible': m = `cmdlinejl'
   }
   else _jl, `interruptible': m = `cmdlinejl';
 
@@ -648,7 +655,6 @@ program define _reghdfejl, eclass
     _assert `"`r(ans)'"'!="sample is empty", msg(no coefficients estimated) rc(111)
     _jl: st_numscalar("`t'", coefnames(m)[1]=="(Intercept)");
     local hascons = `t'
-
     _jl: reghdfejl.b = coef(m);
     _jl: reghdfejl.V = iszero(0`bs') ? vcov(m) : reghdfejl.Vbs;
     _jl: reghdfejl.V = replace!(reghdfejl.V, NaN=>0.);
@@ -831,6 +837,7 @@ end
 // translate a pipe-delimited coefficient list back to Stata syntax, and replace temp vars with their names
 
 program define varlistJ2S, rclass
+  version 15
   syntax, jlcoefnames(string) vars(string) varnames(string)
   gettoken jlcoef jlcoefnames: jlcoefnames, parse("|")
   while "`jlcoef'"!="" {
@@ -843,7 +850,10 @@ program define varlistJ2S, rclass
       local cdot = cond("`2'"!="", "c.", "")
       local stcoef
       while "`1'"!="" {
-        if regexm(strtrim("`1'"), "^([^:&]*)(:(.*)){0,1}$") {  // "[coef]" or "[coef]: [x]"
+        if regexm(strtrim("`1'"), "^([^:&]*)$") {  // "[coef]"
+          local stcoef `=cond("`stcoef'"=="","","`stcoef'#")'`:word `:list posof "`=regexs(1)'" in vars' of `varnames''
+        }
+        else if regexm(strtrim("`1'"), "^([^:&]*)(:(.*))$") {  // "[coef]: [x]"
           local stcoef `=cond("`stcoef'"=="","","`stcoef'#")'`=cond(regexs(3)!="","`=real(regexs(3))'.", "`cdot'")'`:word `:list posof "`=regexs(1)'" in vars' of `varnames''
         }
         macro shift
@@ -896,6 +906,7 @@ program define Display
 end
 
 * Version history
+* 1.0.4 Fix crash in Stata<18 from using {n} in regexm()
 * 1.0.3 Fix crashes with 100s of non-absorbed regressors
 * 1.0.2 Bug fix for 1.0.1 bug fix.
 * 1.0.1 Add vce(bs, saving()) suboption. Made rng seeds more deterministic. Refined the bootstrap code. Fix crash in varlistJ2S.
