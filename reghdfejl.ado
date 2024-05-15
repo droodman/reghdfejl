@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.4 14 May 2024
+*! reghdfejl 1.0.5 14 May 2024
 
 // The MIT License (MIT)
 //
@@ -24,7 +24,7 @@
 
 
 * Version history at bottom
-
+cap program drop reghdfejl
 program define reghdfejl
   version 15
   qui jl GetEnv
@@ -380,98 +380,101 @@ program define _reghdfejl, eclass
   }
   else {
     // translate varlists into StatsModels formulas, translating factor terms directly when possible, fvrevar'ing otherwise; do in main proc because may create temp vars
-    tempname termtab dummyrows freqs
+    tempname termtab _termtab dummyrows freqs
+    mata `termtab' = J(0,3,"")  // i/c, ib value, varname
     foreach varset in dep inexog instd insts {
       if `'"``varset'name'"'!="" {
-        fvexpand ``varset'name' if `touse'
-        local `varset'expanded `r(varlist)'
+        if `hasiv' {
+          fvexpand ``varset'name' if `touse'
+          local `varset'expanded `r(varlist)'
+        }
 
-        mata `termtab' = J(0,3,"")
         fvunab varlist: ``varset'name'
         gettoken term varlist: varlist, bind
         while "`term'"!="" {
-          local goodterm 1
+          mata `_termtab' = J(0,3,"")
+          local norevar 1
           tokenize `term', parse("#")
           local _term `*'
-          local _term: list uniq _term
           local newterm
           foreach factor of local _term {
-            if "`factor'" == "#" local newterm `newterm'#
-            else {
+            if "`factor'" != "#" {
               if regexm("`factor'", "^i\.(.*)$") {
-                mata `termtab' = `termtab' \ "i", "nothing", "`=regexs(1)'"
-                local newterm `newterm'`=regexs(1)'  // strip i. prefix
+                mata `_termtab' = `_termtab' \ "i", "nothing", "`=regexs(1)'"
               }
               else if regexm("`factor'", "^i(b([0-9]+))\.(.*)$") {
-                mata `termtab' = `termtab' \ "i", "`=regexs(2)'", "`=regexs(3)'"
-                local newterm `newterm'`=regexs(3)'  // strip ibX. prefix
+                mata `_termtab' = `_termtab' \ "i", "`=regexs(2)'", "`=regexs(3)'"
               }
               else {
                 if substr(`"`factor'"',1,2)=="c." local factor = substr("`factor'", 3, .)
                 cap confirm var `factor'
-                if _rc {  // bad syntax; or ts op or "ib...." that can't be expressed with StatsModels.jl DummyCoding()
+                if _rc {  // bad syntax; or ts op or "i()...." that can't be expressed with StatsModels.jl DummyCoding()
                   fvexpand `term' if `touse'
                   local `varset'names ``varset'names' `r(varlist)'
                   foreach var in `r(varlist)' {  // equivalent to fvrevar `r(varlist)' but a bit faster on big data sets
                     tempvar t
-                    qui gen `t' = `var' if `touse'
+                    qui gen double `t' = `var' if `touse'
                     local `varset'vars ``varset'vars' `t'
                     local `varset'formula ``varset'formula' `t'
+                    local putvars `putvars' `t'
                   }
-                  local goodterm 0
+                  local norevar 0
                   continue, break
                 }
-                mata `termtab' = `termtab' \ "c", "", "`factor'"
-                local newterm `newterm'`factor'
+                mata `_termtab' = `_termtab' \ "c", "", "`factor'"
               }
             }
           }
-          if `goodterm' {
-            local `varset'formula ``varset'formula' `newterm'
-            local goodterms `goodterms' `newterm'
+          if `norevar' {
+            mata st_local("term", invtokens(`_termtab'[,3]'))
+            local term: subinstr local term " " "#", all
+            local `varset'formula ``varset'formula' `term'
+            local goodterms `goodterms' `term'
+            mata `termtab' = `termtab' \ `_termtab'
           }
           gettoken term varlist: varlist, bind
         }
         fvrevar `goodterms', list
         local `varset'vars ``varset'vars' `r(varlist)'
         local `varset'names ``varset'names' `r(varlist)'
+        local putvars `putvars' `r(varlist)'
 
-        mata `termtab' = uniqrows(`termtab')
-        mata `dummyrows' = selectindex(`termtab'[,1]:=="i")
-        mata st_local("t", invtokens(":" :+ `termtab'[`dummyrows',3]' :+ "=>DummyCoding(base=" :+ `termtab'[`dummyrows',2]' :+ "), "))
-        local DummyCodingargs "`DummyCodingargs' `t'"
-        mata `dummyrows' = uniqrowsfreq(uniqrows(`termtab'[, 1\3])[,2], `freqs'=.)
-        cap mata st_local("dups", invtokens(`dummyrows'[selectindex(`freqs':>1)]'))
-        foreach dup in `dups' {  // any vars appearing with both i. and c.? (rare)
-          tempname t
-          local `varset'formula: subinstr local `varset'formula "c.`dup'" "c.`t'", word all
-          local `varset'formula: subinstr local `varset'formula "`dup'"   "`t'", word all
-          local dfaliascmds `dfaliascmds' df.`t' = df.`dup'; 
-          local `varset'names ``varset'names' `dup'
-          local `varset'vars ``varset'vars' `t'
-        }
-        
-        local `varset'formula: subinstr local `varset'formula "#" "&", all
         local `varset'formula: subinstr local `varset'formula " " " + ", all
+        local `varset'formula: subinstr local `varset'formula "#" "&", all
+      }
+    }
+    mata `termtab' = uniqrows(`termtab')
+    mata `dummyrows' = selectindex(`termtab'[,1]:=="i")
+    mata st_local("DummyCodingargs", invtokens(":" :+ `termtab'[`dummyrows',3]' :+ "=>DummyCoding(base=" :+ `termtab'[`dummyrows',2]' :+ "), "))
+    mata `dummyrows' = uniqrowsfreq(uniqrows(`termtab'[, 1\3])[,2], `freqs'=.)
+    cap mata st_local("dups", invtokens(`dummyrows'[selectindex(`freqs':>1)]'))
+    foreach dup in `dups' {  // any vars appearing with both i. and c.? (rare)
+      tempname t
+      local dfaliascmds `dfaliascmds' df.`t' = df.`dup'; 
+      foreach varset in dep inexog instd insts {
+        local `varset'formula: subinstr local `varset'formula "c.`dup'" "c.`t'", word all
+        local `varset'formula: subinstr local `varset'formula "`dup'"   "`t'"  , word all
+        local `varset'names ``varset'names' `dup'
+        local `varset'vars ``varset'vars' `t'
       }
     }
   }
 
-  local vars `depvars' `inexogvars' `instdvars' `instsvars' `_cluster' `wtvar' `absorbvars' `bscluster'
-  local vars: list uniq vars
+  local putvars `putvars' `_cluster' `wtvar' `absorbvars' `bscluster'
+  local putvars: list uniq putvars
 
   if `compact' {
     tempfile noncompactfile
     save "`noncompactfile'"
     c_local noncompactfile `noncompactfile'
-    keep `vars' `touse'
+    keep `putvars' `touse'
     qui keep if `touse'
     local iftouse
   }
   else local iftouse if `touse'
 
   
-  jl PutVarsToDF `vars' `iftouse', nomissing doubleonly nolabel  // put all vars in Julia DataFrame named df; making it a global makes it visible to workers, for bs
+  jl PutVarsToDF `putvars' `iftouse', nomissing doubleonly nolabel  // put all vars in Julia DataFrame named df; making it a global makes it visible to workers, for bs
   _jl: `dfaliascmds';
 
   if "`verbose'"!="" jl: df
@@ -835,7 +838,7 @@ end
 
 
 // translate a pipe-delimited coefficient list back to Stata syntax, and replace temp vars with their names
-
+cap program drop varlistJ2S
 program define varlistJ2S, rclass
   version 15
   syntax, jlcoefnames(string) vars(string) varnames(string)
@@ -906,11 +909,6 @@ program define Display
 end
 
 * Version history
-* 1.0.4 Fix crash in Stata<18 from using {n} in regexm()
-* 1.0.3 Fix crashes with 100s of non-absorbed regressors
-* 1.0.2 Bug fix for 1.0.1 bug fix.
-* 1.0.1 Add vce(bs, saving()) suboption. Made rng seeds more deterministic. Refined the bootstrap code. Fix crash in varlistJ2S.
-* 1.0.0 Add ivreg2 mode. Make compatible with jl 1.0.0.
 * 0.3.0 Add support for absorbing string vars and clustering on interactions
 * 0.3.1 Add compact option
 * 0.3.2 Much better handling of interactions. Switched to BLISBLAS.jl.
@@ -926,3 +924,8 @@ end
 * 0.6.2 Bug fixes. Add Kleibergen-Paap return value. Catch small option.
 * 0.6.3 Bug fixes, including [pw] not triggering robust. Bump to julia.ado 0.10.0. Speed up handling of non-absorbed factor variables--don't fvrevar and then copy.
 * 1.0.0 Support wildcards in absorb(). Added ivreg2 option.
+* 1.0.1 Add vce(bs, saving()) suboption. Made rng seeds more deterministic. Refined the bootstrap code. Fix crash in varlistJ2S.
+* 1.0.2 Bug fix for 1.0.1 bug fix.
+* 1.0.3 Fix crashes with 100s of non-absorbed regressors
+* 1.0.4 Fix crash in Stata<18 from using {n} in regexm()
+* 1.0.5 Redo translation of fv vars from Stata to Julia
