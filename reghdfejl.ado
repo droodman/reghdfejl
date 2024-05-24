@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.5 14 May 2024
+*! reghdfejl 1.0.6 24 May 2024
 
 // The MIT License (MIT)
 //
@@ -445,7 +445,8 @@ program define _reghdfejl, eclass
     }
     mata `termtab' = uniqrows(`termtab')
     mata `dummyrows' = selectindex(`termtab'[,1]:=="i")
-    mata st_local("DummyCodingargs", invtokens(":" :+ `termtab'[`dummyrows',3]' :+ "=>DummyCoding(base=" :+ `termtab'[`dummyrows',2]' :+ "), "))
+    mata st_local("dummyopt", invtokens(":" :+ `termtab'[`dummyrows',3]' :+ "=>DummyCoding(base=" :+ `termtab'[`dummyrows',2]' :+ "), "))
+    local dummyopt , contrasts=Dict{Symbol, DummyCoding}(`dummyopt')
     mata `dummyrows' = uniqrowsfreq(uniqrows(`termtab'[, 1\3])[,2], `freqs'=.)
     cap mata st_local("dups", invtokens(`dummyrows'[selectindex(`freqs':>1)]'))
     foreach dup in `dups' {  // any vars appearing with both i. and c.? (rare)
@@ -559,7 +560,7 @@ program define _reghdfejl, eclass
 
   * Estimate!
   local flinejl f = @formula(`depformula' ~ `inexogformula' `ivarg' `feterms')
-  local cmdlinejl `nl'reg(df, f `familyopt' `linkopt' `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt' `sepopt' `tolopt' `iteropt', contrasts=Dict{Symbol, DummyCoding}(`DummyCodingargs'))
+  local cmdlinejl `nl'reg(df, f `familyopt' `linkopt' `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt' `sepopt' `tolopt' `iteropt' `dummyopt')
   _jl: `flinejl';
   if "`verbose'"!="" {
     di `"`flinejl'"'
@@ -595,7 +596,6 @@ program define _reghdfejl, eclass
       _jl: reghdfejl.s = nothing
     }
     else _jl: _reghdfejl_Nclust = size(df,1); reghdfejlbs.id = Colon();
-
     _jl: _reghdfejl_bssize = iszero(0`size') ? _reghdfejl_Nclust : 0`size'; reghdfejl.reps = `reps'
     _jl: Distributed.remotecall_eval(Main, procs(), :(reghdfejlbs.wt = Vector{Int}(undef, $(_reghdfejl_Nclust))));  ///
          retval = @distributed (+) for m in 1:reghdfejl.reps                                                        ///
@@ -605,7 +605,7 @@ program define _reghdfejl, eclass
            end;                                                                                                     ///
            _reghdfejl_df.__reghdfejl_bswt = reghdfejlbs.wt[_reghdfejl_id];                                          ///
            `=cond("`wtopt'"!="", "_reghdfejl_df.__reghdfejl_bswt .*= _reghdfejl_df.`wtvar';", "")'                  ///
-           b = coef(`nl'reg(_reghdfejl_df, f `familyopt' `linkopt', weights=:__reghdfejl_bswt; `methodopt' `threadsopt' `sepopt' `tolopt')); ///
+           b = coef(`nl'reg(_reghdfejl_df, f `familyopt' `linkopt', weights=:__reghdfejl_bswt `methodopt' `threadsopt' `sepopt' `tolopt' `dummyopt')); ///
            `=cond("`saving'"!="","_reghdfejl_saving[m,:] = b;", "")'                                                ///
            [b, b*b']                                                                                                ///
          end;                                                                                                       ///
@@ -929,3 +929,4 @@ end
 * 1.0.3 Fix crashes with 100s of non-absorbed regressors
 * 1.0.4 Fix crash in Stata<18 from using {n} in regexm()
 * 1.0.5 Redo translation of fv vars from Stata to Julia
+* 1.0.6 Fix crash on vce(bs) with non-absorbed factor vars
