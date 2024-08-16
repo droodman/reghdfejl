@@ -43,7 +43,6 @@
 {synopt: {cmdab:a:bsorb}({it:absvars}, [{cmdab:save:fe}])}categorical variables representing the fixed effects to be absorbed{p_end}
 {synopt: {opth vce:(reghdfejl##model_opts:vcetype)}}{it:vcetype} may be {opt un:adjusted} (default), {opt r:obust}, {opt bs}/{opt boot:strap}, {opt cl:uster} {help fvvarlist} (allowing multi-way clustering){p_end}
 {synopt: {opth res:iduals(newvar)}}save regression residuals; required for postestimation "{it:predict <varname>, d}" {p_end}
-{synopt: {opth res:iduals(newvar)}}save regression residuals; required for postestimation "{it:predict <varname>, d}" {p_end}
 {synopt:{opt ivreg2}}call ivreg2 for IV estimation{p_end}
 {synopt:{opt iter:ate(#)}}maximum number of iterations; default is 16,000{p_end}
 {synopt:{opt keepsin:gletons}}do not drop fixed effect singletons{p_end}

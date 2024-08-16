@@ -269,7 +269,7 @@ program define _reghdfejl, eclass
     
     markout `touse' `absorbvars'
   }
-  else if "`constant'"!="" local feterms + 0
+  else local feterms + `="`constant'"==""'
 
   if `GLM' {
     local nl nl
@@ -391,6 +391,7 @@ program define _reghdfejl, eclass
 
         fvunab varlist: ``varset'name'
         gettoken term varlist: varlist, bind
+        local goodterms
         while "`term'"!="" {
           mata `_termtab' = J(0,3,"")
           local norevar 1
@@ -400,10 +401,12 @@ program define _reghdfejl, eclass
           foreach factor of local _term {
             if "`factor'" != "#" {
               if regexm("`factor'", "^i\.(.*)$") {
-                mata `_termtab' = `_termtab' \ "i", "nothing", "`=regexs(1)'"
+                sum `=regexs(1)' if `touse', meanonly
+                if r(max)>r(min) mata `_termtab' = `_termtab' \ "i", "nothing", "`=regexs(1)'"  // skip i.var if var is constant in the sample
               }
               else if regexm("`factor'", "^i(b([0-9]+))\.(.*)$") {
-                mata `_termtab' = `_termtab' \ "i", "`=regexs(2)'", "`=regexs(3)'"
+                sum `=regexs(3)' if `touse', meanonly
+                if r(max)>r(min) mata `_termtab' = `_termtab' \ "i", "`=regexs(2)'", "`=regexs(3)'"
               }
               else {
                 if substr(`"`factor'"',1,2)=="c." local factor = substr("`factor'", 3, .)
@@ -841,7 +844,7 @@ end
 cap program drop varlistJ2S
 program define varlistJ2S, rclass
   version 15
-  syntax, jlcoefnames(string) vars(string) varnames(string)
+  syntax, jlcoefnames(string) [vars(string) varnames(string)]
   gettoken jlcoef jlcoefnames: jlcoefnames, parse("|")
   while "`jlcoef'"!="" {
     if "`jlcoef'"=="(Intercept)" {
