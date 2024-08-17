@@ -453,7 +453,7 @@ On a Mac with an M2 Pro chip--with 8 performance cores and 4 efficiency cores--t
 {phang}qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2){p_end}
 {phang}qui reghdfejl y x1 x2, a(id1 id2) cluster(id1 id2) gpu{p_end}
 
-{phang}set processors 8  // requires Stata/MP{p_end}
+{phang}set processors 6  // requires Stata/MP{p_end}
 {phang}qui areg      y x1 x2, a(id1) cluster(id1){p_end}
 {phang}qui reghdfe   y x1 x2, a(id1) cluster(id1){p_end}
 {phang}qui reghdfejl y x1 x2, a(id1) cluster(id1){p_end}
