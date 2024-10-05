@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.6 24 May 2024
+*! reghdfejl 1.0.7 17 August 2024
 
 // The MIT License (MIT)
 //
@@ -31,8 +31,10 @@ program define reghdfejl
   local env `r(env)'
   qui jl SetEnv reghdfejl
   cap noi _reghdfejl `0'
-  if _rc & "`noncompactfile'"!="" use `noncompactfile'
+  local rc = _rc
   qui jl SetEnv `env'
+  if `rc' & "`noncompactfile'"!="" use `noncompactfile'
+  exit `rc'
 end
 
 cap program drop _reghdfejl
@@ -548,7 +550,6 @@ program define _reghdfejl, eclass
     ereturn scalar df_a = `df_a'
     ereturn scalar N_hdfe = `N_hdfe'
     ereturn scalar ic = `ic'
-//     _jl: st_numscalar("`M'", size(reghdfejl.p[1],1) - sum(reghdfejl.p[2]));
     _jl: st_numscalar("`M'", size(df,1) - nobs(reghdfejl.p));
     ereturn scalar num_singletons = `M'
     if `M' di as txt `"(dropped `e(num_singletons)' {browse "http://scorreia.com/research/singletons.pdf":singleton observations})"'
@@ -870,6 +871,7 @@ program define varlistJ2S, rclass
   }
 end
 
+// cap program drop Display
 program define Display
   version 15
   syntax [, Level(real `c(level)') noHEADer notable *]
@@ -933,3 +935,4 @@ end
 * 1.0.4 Fix crash in Stata<18 from using {n} in regexm()
 * 1.0.5 Redo translation of fv vars from Stata to Julia
 * 1.0.6 Fix crash on vce(bs) with non-absorbed factor vars
+* 1.0.7 Fix crashes on i.x when x is constant in sample
