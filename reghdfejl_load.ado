@@ -34,7 +34,7 @@ program define reghdfejl_load
     jl AddPkg Distributions, minver(0.25.107)
     jl AddPkg Vcov, minver(0.8.1)
     _jl: using `blaslib', `gpulib', FixedEffectModels, Vcov, StableRNGs, Distributed, DataFrames, GLFixedEffectModels, Distributions;
-    _jl: module reghdfejl end;  // name space for the package
+    _jl: module reghdfejl global p, res, esample, D, s, reps, b, V, Vbs, coefnames end;  // name space for the package
     global reghdfejl_loaded 1
   }
 end

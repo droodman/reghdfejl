@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.7 17 August 2024
+*! reghdfejl 1.0.8 8 November 2024
 
 // The MIT License (MIT)
 //
@@ -589,7 +589,7 @@ program define _reghdfejl, eclass
     else if `procs' < `r(ans)' _jl: rmprocs(workers()[end-(`r(ans)'-`procs'-(`procs'>1)):end]);
 
     _jl: @everywhere using StableRNGs, SharedArrays;
-    _jl: @everywhere module reghdfejlbs end;  // worker-specific storage
+    _jl: @everywhere module reghdfejlbs global rng, id, wt end;  // worker-specific storage
     if "`saving'"!="" _jl: _reghdfejl_saving = SharedMatrix{Float64}(`reps', k);
     _jl: @everywhere reghdfejlbs.rng = StableRNG(`=runiformint(0, 1e6)' * findfirst(==(myid()), procs()) + 42);  // different, ~deterministic seeds for each worker
     _jl: _reghdfejl_df = DataFrame(SharedMatrix(Matrix(df)), names(df))  // copy of df shareable across workers
@@ -936,3 +936,4 @@ end
 * 1.0.5 Redo translation of fv vars from Stata to Julia
 * 1.0.6 Fix crash on vce(bs) with non-absorbed factor vars
 * 1.0.7 Fix crashes on i.x when x is constant in sample
+* 1.0.8 Make compatible with Julia 1.11
