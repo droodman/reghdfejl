@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.8 8 November 2024
+*! reghdfejl 1.0.9 29 December 2024
 
 // The MIT License (MIT)
 //
@@ -466,7 +466,7 @@ program define _reghdfejl, eclass
     }
   }
 
-  local putvars `putvars' `_cluster' `wtvar' `absorbvars' `bscluster'
+  unab putvars: `putvars' `_cluster' `wtvar' `absorbvars' `bscluster'
   local putvars: list uniq putvars
 
   if `compact' {
@@ -937,3 +937,4 @@ end
 * 1.0.6 Fix crash on vce(bs) with non-absorbed factor vars
 * 1.0.7 Fix crashes on i.x when x is constant in sample
 * 1.0.8 Make compatible with Julia 1.11
+* 1.0.9 Make sure to unab all variables before PutVarsToDF in order to catch all duplicates
