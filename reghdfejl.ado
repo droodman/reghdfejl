@@ -150,7 +150,7 @@ program define _reghdfejl, eclass
       local inexogname `inexogname' `anything'
       continue, break
     }
-    else local inexogname `inexogname' `term'
+    else if subinstr(`"`term'"'," ","",.) != "[]" local inexogname `inexogname' `term'  // handle rare event of empty weight opt, "[]"
   }
   if !`hasiv' local ivreg2 0
 

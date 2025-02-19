@@ -44,6 +44,7 @@
 {synopt: {opth vce:(reghdfejl##model_opts:vcetype)}}{it:vcetype} may be {opt un:adjusted} (default), {opt r:obust}, {opt bs}/{opt boot:strap}, {opt cl:uster} {help fvvarlist} (allowing multi-way clustering){p_end}
 {synopt: {opth res:iduals(newvar)}}save regression residuals; required for postestimation "{it:predict <varname>, d}" {p_end}
 {synopt:{opt ivreg2}}call ivreg2 for IV estimation{p_end}
+{synopt:{opt tol:erance(#)}}criterion for convergence. default is 1e-8{p_end}
 {synopt:{opt iter:ate(#)}}maximum number of iterations; default is 16,000{p_end}
 {synopt:{opt keepsin:gletons}}do not drop fixed effect singletons{p_end}
 {synopt:{opt nosamp:le}}do not create {it:e(sample)}, saving some space and speed{p_end}
@@ -154,7 +155,6 @@ version of the Julia package CUDA.jl, which currently requires CUDA drivers 11.0
 interface for GPUs.) You can visit the 
 {browse "https://developer.nvidia.com/cuda-downloads":CUDA download site} for the latest drivers.
 
-
 {pstd}
 The command {cmd:reghdfejl mask} redirects all {cmd:reghdfe} calls to {cmd:reghdfejl}. {cmd:reghdfejl unmask} stops the redirection. This is useful is when using other Stata packages that call {cmd:reghdfe}, such as 
 {stata findit eventdd:eventdd}. It can speed up those commands as well. Since {cmd:reghdfe} and {cmd:reghdfejl} do not accept exactly the same options,
@@ -208,7 +208,7 @@ but will only save the estimates for the year fixed effects (in the new variable
 {pmore}
 If you want to run {help reghdfejl##postestimation:predict} afterward but don't particularly care about the names of each fixed effect, use the {cmdab:save:fe} suboption.
 This will delete all preexisting variables matching {it:__hdfe*__} and create new ones as required.
-Example: {it:reghdfejl price weight, absorb(turn trunk, savefe)}.
+Example: {cmd:reghdfejl price weight, absorb(turn trunk, savefe)}.
 
 {marker opt_model}{...}
 
@@ -298,37 +298,27 @@ are left behind for the user to work with through {help jl}, not erased as they 
 {title:Postestimation syntax}
 
 {pstd}
-Only {cmd:estat summarize}, {cmd:predict}, and {cmd:test} are currently supported.
+The syntax of {cmd:predict} after {cmd:reghdfejl} is standard:
 
-{pstd}
-The syntax of {it: estat summarize} and {it:predict} is:
+{p 8 15 2} {cmd:predict} {newvar} {ifin} [{cmd:,} {it:statistic}]
 
-{p 8 13 2}
-{cmd:estat summarize}
-{p_end}{col 23}Summarizes {it:depvar} and the variables described in {it:_b} (i.e. not the excluded instruments)
+{pstd}However, unless the default {opt xb} statistic is requested, the {cmd:predict} command may require you to have saved the fixed effects. See the {help reghdfejl##opt_absorb:absorb} option.
+{p_end}
 
-{p 8 16 2}
-{cmd:predict} 
-{newvar} 
-{ifin}
-[{cmd:,} {it:statistic}]
-{p_end}{col 23}May require you to previously save the fixed effects (except for option {opt xb}).
-{col 23}To see how, see the details of the {help reghdfejl##absvar:absorb} option
-{col 23}Equation: y = xb + d_absorbvars + e
+{pstd}With reference to the equation {it:y = xb + d_absorbvars + e}, the accepted {it:statistic}s are:{p_end}
 
 {synoptset 20 tabbed}{...}
 {synopthdr:statistic}
 {synoptline}
-{syntab :Main}
 {p2coldent: {opt xb}}xb fitted values; the default{p_end}
 {p2coldent: {opt xbd}}xb + d_absorbvars{p_end}
 {p2coldent: {opt d}}d_absorbvars{p_end}
-{p2coldent: {opt r:esiduals}}residual{p_end}
-{p2coldent: {opt sc:ore}}score; equivalent to {opt residuals}{p_end}
-{p2coldent: {opt stdp}}standard error of the prediction (of the xb component){p_end}
+{p2coldent: {opt r:esiduals}}residuals{p_end}
+{p2coldent: {opt sc:ore}}equivalent to {opt residuals}{p_end}
+{p2coldent: {opt stdp}}standard error of the prediction of the xb component{p_end}
 {synoptline}
 {p2colreset}{...}
-{p 4 6 2}although {cmd:predict} {help data_types:type} {help newvar} is allowed,
+{p 4 6 2}Although {cmd:predict} {help data_types:type} {help newvar} is allowed,
 the resulting variable will always be of type {it:double}.{p_end}
 
 
