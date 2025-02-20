@@ -646,7 +646,7 @@ program define _reghdfejl, eclass
     _jl: res = nothing;
   }
 
-  tempname t N I
+  tempname t N I used_df_r
 
   _jl: st_numscalar("`N'", nobs(m));
 
@@ -744,6 +744,10 @@ program define _reghdfejl, eclass
     ereturn scalar df_a = `t'
     _jl: st_numscalar("`t'", dof_residual(m));
     ereturn scalar df_r = `t'
+    _jl: st_numscalar("`t'", m.tss);
+    ereturn scalar tss = `t'
+    _jl: st_numscalar("`t'", m.rss / (1-m.r2_within));
+    ereturn scalar tss_within = `t'
     _jl: st_numscalar("`t'", rss(m));
     ereturn scalar rss = `t'
     _jl: st_numscalar("`t'", mss(m));
@@ -758,7 +762,10 @@ program define _reghdfejl, eclass
       _jl: st_numscalar("`t'", m.F_kp);
       ereturn scalar widstat = `t'
     }
-    ereturn scalar rmse = sqrt(e(rss) / (e(N) - e(df_a) - e(rank)))
+    scalar `used_df_r' = e(N) - e(df_a) - e(rank)
+    ereturn scalar r2_a_within = 1 - (e(rss) / `used_df_r') / (e(tss_within) / (e(N) - e(df_a)))
+
+    ereturn scalar rmse = sqrt(e(rss) / `used_df_r')
     ereturn scalar ll  = -e(N)/2*(1 + log(2*_pi / e(N) *  e(rss)          ))
     ereturn scalar ll0 = -e(N)/2*(1 + log(2*_pi / e(N) * (e(rss) + e(mss))))
 

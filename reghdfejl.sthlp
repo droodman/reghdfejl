@@ -353,13 +353,13 @@ the resulting variable will always be of type {it:double}.{p_end}
 {synopt:{cmd:e(N_full)}}number of observations including singletons{p_end}
 {synopt:{cmd:e(N_hdfe)}}number of absorbed fixed-effects{p_end}
 {synopt:{cmd:e(tss)}}total sum of squares{p_end}
-{synopt:{cmd:e(tss)}}total sum of squares after partialling-out{p_end}
+{synopt:{cmd:e(tss_within)}}total sum of squares after absorbing fixed effects{p_end}
 {synopt:{cmd:e(rss)}}residual sum of squares{p_end}
-{synopt:{cmd:e(rss)}}model sum of squares (tss-rss){p_end}
+{synopt:{cmd:e(mss)}}model sum of squares (tss-rss){p_end}
 {synopt:{cmd:e(r2)}}R-squared{p_end}
 {synopt:{cmd:e(r2_a)}}adjusted R-squared{p_end}
 {synopt:{cmd:e(r2_within)}}Within R-squared{p_end}
-{synopt:{cmd:e(r2_a_within)}}Adjusted Within R-squared{p_end}
+{synopt:{cmd:e(r2_a_within)}}Adjusted within R-squared{p_end}
 {synopt:{cmd:e(df_a)}}degrees of freedom lost due to the fixed effects{p_end}
 {synopt:{cmd:e(rmse)}}root mean squared error{p_end}
 {synopt:{cmd:e(ll)}}log-likelihood{p_end}
