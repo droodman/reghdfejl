@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.10 19 February 2025
+*! reghdfejl 1.0.11 3 March 2025
 
 // The MIT License (MIT)
 //
@@ -566,14 +566,18 @@ program define _reghdfejl, eclass
   local flinejl f = @formula(`depformula' ~ `inexogformula' `ivarg' `feterms')
   local cmdlinejl `nl'reg(df, f `familyopt' `linkopt' `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt' `sepopt' `tolopt' `iteropt' `dummyopt')
   _jl: `flinejl';
+  _jl: m = 0
   if "`verbose'"!="" {
     di `"`flinejl'"'
-    di `"`cmdlinejl'"'
+    di `"m = `cmdlinejl'"'
     jl, `interruptible': m = `cmdlinejl'
   }
   else _jl, `interruptible': m = `cmdlinejl';
 
   _assert `"`r(ans)'"'!="sample is empty", msg(no observations) rc(2000)
+  
+  qui jl: Int(m==0)
+  _assert !`r(ans)', msg(estimation failed) rc(199)
   
   tempname k
   _jl: k = length(coef(m)); st_numscalar("`k'", k);
@@ -946,3 +950,4 @@ end
 * 1.0.8  Make compatible with Julia 1.11
 * 1.0.9  Make sure to unab all variables before PutVarsToDF in order to catch all duplicates
 * 1.0.10 Clean up sum-of-squares return values and their documentation
+* 1.0.11 Make ado crash if estimation fails.
