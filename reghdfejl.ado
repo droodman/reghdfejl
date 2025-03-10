@@ -240,10 +240,9 @@ program define _reghdfejl, eclass
         macro shift 2
         local namedfe 1
       }
-      local varlist i.`: subinstr local 1 " " " i.", all'
-      local varlist: subinstr local varlist "i.i." "i.", all
-      local varlist: subinstr local varlist "i.c." "c.", all
-      fvunab varlist: `varlist'
+      cap confirm var `1'
+      if !_rc local 1 i.`1'  // prefix plain var name with "i."
+      fvunab varlist: `1'
       mata `vars'=tokens(st_local("varlist")); `vars'=select(`vars', strmatch(`vars', "*.*") :| strmatch(`vars', "*#*")); st_local("varlist", length(`vars')? invtokens(`vars') : "")  // drop any continuous "var2" term generated from "var2##c.var2"
       local feterms `feterms' `varlist'
       local fenames = `"`fenames'"' + `" "" "' * (`:word count `varlist'' - `t')
@@ -253,6 +252,9 @@ program define _reghdfejl, eclass
     local N_hdfe: word count `feterms'
 
     local absorbvars: copy local feterms
+    local feterms i.`: subinstr local feterms " " " i.", all'
+    local feterms: subinstr local feterms "i.i." "i.", all
+    local feterms: subinstr local feterms "i.c." "c.", all
     local feterms: subinstr local feterms "#c." ")&(", all
     local feterms: subinstr local feterms "#i." ")&fe(", all
     local feterms: subinstr local feterms "i." "fe(", all
