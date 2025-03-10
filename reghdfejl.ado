@@ -1,4 +1,4 @@
-*! reghdfejl 1.0.11 3 March 2025
+*! reghdfejl 1.0.11 9 March 2025
 
 // The MIT License (MIT)
 //
@@ -220,7 +220,17 @@ program define _reghdfejl, eclass
   if `"`absorb'"' != "" {
     local 0 `absorb'
     syntax anything(equalok), [SAVEfe]
-    tokenize `anything', parse(" =")
+    tempname vars
+
+    * like tokenize `anything', parse(" ="), but with bind option to keep parenthesized expressions together
+    local i 0
+    gettoken term anything: anything, bind parse(" =")
+    while `"`term'"'!="" {
+      local `++i': copy local term
+      gettoken term anything: anything, bind parse(" =")
+    }
+    local `++i'
+    local `++i'
 
     while `"`1'"' != "" {
       local t = "`2'"' == "="
@@ -230,7 +240,11 @@ program define _reghdfejl, eclass
         macro shift 2
         local namedfe 1
       }
-      fvunab varlist: `1'
+      local varlist i.`: subinstr local 1 " " " i.", all'
+      local varlist: subinstr local varlist "i.i." "i.", all
+      local varlist: subinstr local varlist "i.c." "c.", all
+      fvunab varlist: `varlist'
+      mata `vars'=tokens(st_local("varlist")); `vars'=select(`vars', strmatch(`vars', "*.*") :| strmatch(`vars', "*#*")); st_local("varlist", length(`vars')? invtokens(`vars') : "")  // drop any continuous "var2" term generated from "var2##c.var2"
       local feterms `feterms' `varlist'
       local fenames = `"`fenames'"' + `" "" "' * (`:word count `varlist'' - `t')
       macro shift
@@ -238,15 +252,8 @@ program define _reghdfejl, eclass
     local absorb: copy local feterms
     local N_hdfe: word count `feterms'
 
-    local feterms i.`: subinstr local feterms " " " i.", all'
-
     local absorbvars: copy local feterms
-    local feterms: subinstr local feterms "##c." ")*(", all
     local feterms: subinstr local feterms "#c." ")&(", all
-    local feterms: subinstr local feterms "##i." ")*fe(", all
-    local feterms: subinstr local feterms "##" "#", all
-    local feterms: subinstr local feterms "#" "#i.", all
-    local feterms: subinstr local feterms "i.i." "i.", all
     local feterms: subinstr local feterms "#i." ")&fe(", all
     local feterms: subinstr local feterms "i." "fe(", all
     local feterms: subinstr local feterms " " ") + ", all
@@ -475,7 +482,6 @@ program define _reghdfejl, eclass
     c_local noncompactfile `noncompactfile'
     keep `putvars' `touse'
     qui keep if `touse'
-    local iftouse
   }
   else local iftouse if `touse'
 
@@ -950,4 +956,4 @@ end
 * 1.0.8  Make compatible with Julia 1.11
 * 1.0.9  Make sure to unab all variables before PutVarsToDF in order to catch all duplicates
 * 1.0.10 Clean up sum-of-squares return values and their documentation
-* 1.0.11 Make ado crash if estimation fails.
+* 1.0.11 Make ado crash if estimation fails. Fix crash on absorb(v1##c.(v2 v3)).
