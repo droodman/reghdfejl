@@ -134,7 +134,7 @@ program define _reghdfejl, eclass
     }
     else local wtvar: copy local exp
     local wtopt , weights = :`wtvar'
-    if "`weight'"=="pweight" local robust robust
+    if "`weight'"=="pweight" & `"`vce'"'=="" local robust robust
   }
   
   local hasiv 0
@@ -357,8 +357,14 @@ program define _reghdfejl, eclass
   }
 
   if "`residuals'" != "" {
-    cap drop _reghdfejl_resid
-    local residuals _reghdfejl_resid
+    local residuals
+    forvalues i=1/120000 {
+      cap confirm new var _reghdfejl_resid`i'
+      if !_rc {
+        local residuals _reghdfejl_resid`i'
+        continue, break
+      }
+    }
   }
   else {
     local 0, `_options'
@@ -959,3 +965,4 @@ end
 * 1.0.9  Make sure to unab all variables before PutVarsToDF in order to catch all duplicates
 * 1.0.10 Clean up sum-of-squares return values and their documentation
 * 1.0.11 Make ado crash if estimation fails. Fix crash on absorb(v1##c.(v2 v3)).
+* 1.1.1  Change default residuals filename to _reghdfejl_resid[N] where N chosen by program to create unique var name
