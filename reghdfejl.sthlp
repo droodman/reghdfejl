@@ -145,8 +145,8 @@ possible for the default to be too high as well as too low. If you set it high, 
 {pstd}
 In a similar vein, {cmd:reghdfejl} offers accelerated bootstrapping for computing standard errors, via the {cmd:bs}/{cmd:bootstrap}
 suboption of the {opt vce()} option. The results should be the same, asymptotically, as if one prefixes a {cmd:reghdfejl} command line with
-Stata's {cmd:bootstrap} command. But they should come much faster because copying of data between Stata and Julia is minimized, and multiple
-copies of Julia are launched for parallelization.
+Stata's {cmd:bootstrap} command. But they will be computed much faster because copying of data between Stata and Julia is minimized, and
+parallelization across CPU cores is fully exploited.
 
 {pstd}
 A final new feature is access to GPU-based computation. The {cmd:gpu} specifies the use of NVIDIA or Apple Silicon 
@@ -235,10 +235,13 @@ may include any of the following suboptions: {opt r:obust}, {opt cl:uster(varnam
 {opt proc:s(#)}. All but the last are standard {help bootstrap:bootstrap options}. The last instructs {cmd:reghdfejl} to launch several
 copies of Julia in order to run the bootstrap in parallel. The {opt proc:s(#)} suboption is semantically distinct from {cmd:reghdfejl}'s {opt threads()}
 option. The latter triggers low-level multitasking: the Julia package FixedEffectModels.jl spreads certain loops across multiple threads within one Julia 
-instance. The former instead runs 
-multiple copies of Julia, each of which loads and runs FixedEffectModels.jl, on just one thread each. While 
-the options are implemented in different ways, the principles governing the optimal number of threads and processes are the 
+instance. The former splits the work at a higher level, which is more efficient. On each thread, FixedEffectModels.jl is run in single-thread mode,
+repeatedly running the model on bootstrapped data. While 
+the options have slightly different effects, the principles governing the optimal number of threads and processes are the 
 same. See {help jl##threads:help jl}.
+
+{pmore}The exact results of the bootstrap are guaranteed to be reproducible if {cmd:set seed} is run beforehand to set the state of Stata's random number generator. In
+addition, when the {opt sav:ing()} option is used to save the bootstrap results to disk, the row order is guaranteed stable.
 
 {pmore}
 Note that while setting the {opt seed(#)} suboption allows for exact reproducibility of results, even with the same seed, changing the {opt proc:s(#)}
@@ -247,7 +250,7 @@ psuedorandom number stream.
 
 {phang}
 {cmdab:res:iduals[(}{help newvar}{cmd:})]} saves the regression residuals in a new variable. {opt res:iduals} without parenthesis saves them
-in the variable {it:_reghdfejl_resid}, overwriting it if it already exists.
+in the variable _reghdfejl_residN, where N is the lowest positive integer producing a new variable name.
 
 {pmore}
 This option carries a small time cost but is required for subsequent calls to {cmd:predict, d}.
