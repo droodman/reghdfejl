@@ -44,38 +44,9 @@ program define partialhdfejl
 
   reghdfejl_load
   
-  tokenize `absorb'
-  local absorb `*'  // remove extra spaces
-  local feterms i.`: subinstr local absorb " " " i.", all'
-
-  local absorbvars `feterms'
-  local feterms: subinstr local feterms "##c." ")*(", all
-  local feterms: subinstr local feterms "#c." ")&(", all
-  local feterms: subinstr local feterms "##i." ")*fe(", all
-  local feterms: subinstr local feterms "##" "#", all
-  local feterms: subinstr local feterms "#" "#i.", all
-  local feterms: subinstr local feterms "i.i." "i.", all
-  local feterms: subinstr local feterms "#i." ")&fe(", all
-  local feterms: subinstr local feterms "i." "fe(", all
-  local feterms: subinstr local feterms " " ") + ", all
-  local feterms: subinstr local feterms ")" " )", all
-  local feterms: subinstr local feterms "(" "( ", all
-  local feterms + `feterms' )
-
-  local absorbvars: subinstr local absorbvars "i." " ", all
-  local absorbvars: subinstr local absorbvars "c." " ", all
-  local absorbvars: subinstr local absorbvars "#" " ", all
-
-  foreach var in `absorbvars' {
-    cap confirm numeric var `var'
-    if _rc {
-      tempvar t
-      egen long `t' = group(`var') if `touse'
-      local absorbvars: subinstr local absorbvars "`var'" "`t'", word all
-      local feterms   : subinstr local feterms    "`var'" "`t'", word all
-    }
-  }
-  
+  reghdfejl_parse_absorb `absorb'
+  local feterms `r(feterms)'
+  local absorbvars `r(absorbvars)'
   markout `touse' `absorbvars'
 
   if "`compact'"!="" {
