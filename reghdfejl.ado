@@ -576,7 +576,7 @@ program define _reghdfejl, eclass
          end;                                                                                                                         ///
          reghdfejl.b = sum(reghdfejl.bbs; dims=1);                                                                                    ///
          reghdfejl.Vbs = (sum(reghdfejl.Vbs; dims=1)[1,:,:] .- reghdfejl.b' ./ `reps' .* reghdfejl.b) ./ (`reps' - `="`mse'"==""'); ///
-         reghdfejl.id = reghdfejl.V = reghdfejl.rng = reghdfejl.dfs = reghdfejl.wts = nothing;
+         reghdfejl.id = reghdfejl.V = reghdfejl.rngs = reghdfejl.dfs = reghdfejl.wts = nothing;
   }
 
   if "`verbose'"=="" _jl: df = nothing;  // yield memory
