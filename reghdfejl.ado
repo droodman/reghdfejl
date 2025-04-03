@@ -124,7 +124,9 @@ program define _reghdfejl, eclass
 
   reghdfejl_load
 
-  if `"`exp'"' != "" {
+  local haswt = `"`exp'"' != ""
+  if `haswt' {
+    local haswt 1
     local wtype: copy local weight
     local wexp `"=`exp'"'
     cap confirm var `exp'
@@ -231,7 +233,7 @@ program define _reghdfejl, eclass
     _assert `"`absorb'"'!="", msg(Doesn't yet accept nonlinear models with no fixed effects. Use {help glm} instead.) rc(198)
 
     _assert !`hasiv', msg(instrumental variables not accepted for nonlinear models) rc(198)
-    _assert "`wtopt'"=="", msg(weights not yet supported for nonlinear models) rc(198)
+    _assert !`haswt', msg(weights not yet supported for nonlinear models) rc(198)
     _assert "`tolerance'"=="", msg(the tolerance() option is for linear models) rc(198)
 
     if `"`separation'"'!="" {
@@ -540,7 +542,7 @@ program define _reghdfejl, eclass
   tempname k
   _jl: reghdfejl.k = length(coef(m)); st_numscalar("`k'", reghdfejl.k);
   _jl: reghdfejl.sizedf = size(df);
-  if "`wtvar'"!="" _jl: sumweights = mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0);
+  if `haswt' _jl: sumweights = mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0);
 
   if `k' & 0`bs' {
     local hasclust = "`bscluster'"!=""
@@ -553,7 +555,7 @@ program define _reghdfejl, eclass
     _jl: reghdfejl.dfs = [DataFrame(df, copycols=false) for _ ∈ 1:`procs']  // copies of df with same underlying data; will hold different bs weights
 
     if `hasclust' {
-      _jl: reghdfejl.s = Set(df.`bscluster'); reghdfejl.Nclust = length(reghdfejl.s);
+      _jl: reghdfejl.s = OrderedSet(df.`bscluster'); reghdfejl.Nclust = length(reghdfejl.s);
       _jl: reghdfejl.id = getindex.(Ref(Dict(zip(reghdfejl.s, 1:reghdfejl.Nclust))), df.`bscluster');  // ordinalize cluster id
       _jl: reghdfejl.s = nothing
     }
@@ -568,15 +570,15 @@ program define _reghdfejl, eclass
                reghdfejl.wts[t][rand(reghdfejl.rngs[t], 1:reghdfejl.Nclust)] += 1                                                     ///
              end;                                                                                                                     ///
              reghdfejl.dfs[t].__reghdfejl_bswt .= reghdfejl.wts[t][reghdfejl.id];                                                     ///
-             `=cond("`wtopt'"!="", "reghdfejl.dfs[t].__reghdfejl_bswt .*= df.`wtvar';", "")'                                          ///
+             `=cond(`haswt', "reghdfejl.dfs[t].__reghdfejl_bswt .*= df.`wtvar';", "")'                                                ///
              reghdfejl.b = coef(`nl'reg(reghdfejl.dfs[t], f `familyopt' `linkopt', weights=:__reghdfejl_bswt, nthreads=1 `methodopt' `sepopt' `tolopt' `dummyopt')); ///
-             reghdfejl.bbs[m,:] = reghdfejl.b;                                                                                                    ///
-             reghdfejl.Vbs[t,:,:] += reghdfejl.b * reghdfejl.b'                                                                                               ///
+             reghdfejl.bbs[m,:] = reghdfejl.b;                                                                                        ///
+             reghdfejl.Vbs[t,:,:] += reghdfejl.b * reghdfejl.b'                                                                       ///
            end                                                                                                                        ///
          end;                                                                                                                         ///
          reghdfejl.b = sum(reghdfejl.bbs; dims=1);                                                                                    ///
-         reghdfejl.Vbs = (sum(reghdfejl.Vbs; dims=1)[1,:,:] .- reghdfejl.b' ./ `reps' .* reghdfejl.b) ./ (`reps' - `="`mse'"==""'); ///
-         reghdfejl.id = reghdfejl.V = reghdfejl.rngs = reghdfejl.dfs = reghdfejl.wts = nothing;
+         reghdfejl.Vbs = (sum(reghdfejl.Vbs; dims=1)[1,:,:] .- reghdfejl.b' ./ `reps' .* reghdfejl.b) ./ (`reps' - `="`mse'"==""');   ///
+         reghdfejl.id = reghdfejl.V = reghdfejl.rngs = reghdfejl.dfs = reghdfejl.dst = reghdfejl.wts = nothing;
   }
 
   if "`verbose'"=="" _jl: df = nothing;  // yield memory
@@ -656,7 +658,7 @@ program define _reghdfejl, eclass
         qui set obs `reps'
         forvalues i=1/`=`k'' {
           local coefname: word `i' of $reghdfejl__coefnames
-          local savvar = cond(strpos("`coefname'","."), "_bs_`i'", "_b_`coefname'")
+          local savvar = cond(strpos("`coefname'",".") | strpos("`coefname'","#"), "_bs_`i'", "_b_`coefname'")
           local savvars `savvars' `savvar'
           qui gen `double' `savvar' = .
           label var `savvar' "_b[`coefname']"
@@ -736,7 +738,7 @@ program define _reghdfejl, eclass
     }
   }
 
-  if "`wtvar'"=="" ereturn scalar sumweights = e(N)
+  if `haswt' ereturn scalar sumweights = e(N)
   else {
     _jl: st_numscalar("`t'", sumweights);
     ereturn scalar sumweights = `t'
