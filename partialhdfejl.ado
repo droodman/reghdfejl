@@ -3,6 +3,22 @@
 cap program drop partialhdfejl
 program define partialhdfejl
   version 15
+  qui jl GetEnv
+  local env `r(env)'
+  qui jl SetEnv reghdfejl
+  cap noi _partialhdfejl `0'
+  local rc = _rc
+  qui jl SetEnv `env'
+  forvalues i=1/0$reghdfejl_stringvar_ct {
+    cap drop reghdfejl_stringvar_`i'
+  }
+  macro drop reghdfejl_stringvar_ct
+  exit `rc'
+end
+
+cap program drop _partialhdfejl
+program define _partialhdfejl
+  version 15
 
   syntax varlist [if] [in] [aw pw fw iw/], Absorb(string) [GENerate(string) PREfix(string) replace ITerations(integer 16000) gpu TOLerance(real 1e-8) compact]
 
@@ -44,7 +60,7 @@ program define partialhdfejl
 
   reghdfejl_load
   
-  reghdfejl_parse_absorb `absorb'
+  reghdfejl_parse_absorb `absorb' if `touse'
   local feterms `r(feterms)'
   local absorbvars `r(absorbvars)'
   markout `touse' `absorbvars'

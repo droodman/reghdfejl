@@ -34,6 +34,10 @@ program define reghdfejl
   local rc = _rc
   qui jl SetEnv `env'
   if `rc' & "`noncompactfile'"!="" use `noncompactfile'
+  forvalues i=1/0$reghdfejl_stringvar_ct {
+    cap drop reghdfejl_stringvar_`i'
+  }
+  macro drop reghdfejl_stringvar_ct
   exit `rc'
 end
 
@@ -220,7 +224,7 @@ program define _reghdfejl, eclass
   }
 
   if `"`absorb'"' != "" {
-    reghdfejl_parse_absorb `absorb'
+    reghdfejl_parse_absorb `absorb' if `touse'
     foreach macro in fenames feterms namedfe absorb N_hdfe absorbvars {
       local `macro' `r(`macro')'
     }

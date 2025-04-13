@@ -2,7 +2,7 @@
 
 cap program drop reghdfejl_parse_absorb
 program define reghdfejl_parse_absorb, rclass
-  syntax anything(equalok), [SAVEfe]
+  syntax anything(equalok) [if], [SAVEfe]
   tempname vars
 
   * like tokenize `anything', parse(" ="), but with bind option to keep parenthesized expressions together
@@ -15,6 +15,7 @@ program define reghdfejl_parse_absorb, rclass
   local `++i'
   local `++i'
 
+  macro drop reghdfejl_stringvar_ct
   while `"`1'"' != "" {
     local t = "`2'"' == "="
     if `t' {
@@ -24,7 +25,15 @@ program define reghdfejl_parse_absorb, rclass
       return local namedfe 1
     }
     cap confirm var `1'
-    if !_rc local 1 i.`1'  // prefix plain var name with "i."
+    if !_rc {
+      cap confirm numeric var `1'
+      if _rc {
+        global reghdfejl_stringvar_ct = 0$reghdfejl_stringvar_ct + 1
+        qui egen long reghdfejl_stringvar_$reghdfejl_stringvar_ct = group(`1') `if'
+        local 1 reghdfejl_stringvar_$reghdfejl_stringvar_ct
+      }
+      local 1 i.`1'  // prefix plain var name with "i."
+    }
     fvunab varlist: `1'
     mata `vars'=tokens(st_local("varlist")); `vars'=select(`vars', strmatch(`vars', "*.*") :| strmatch(`vars', "*#*")); st_local("varlist", length(`vars')? invtokens(`vars') : "")  // drop any continuous "var2" term generated from "var2##c.var2"
     local feterms `feterms' `varlist'
@@ -51,15 +60,6 @@ program define reghdfejl_parse_absorb, rclass
   local absorbvars: subinstr local absorbvars "#" " ", all
   local absorbvars: list uniq absorbvars
 
-  foreach var in `absorbvars' {
-    cap confirm numeric var `var'
-    if _rc {
-      tempvar t
-      qui egen long `t' = group(`var') if `touse'
-      local absorbvars: subinstr local absorbvars "`var'" "`t'", word all
-      local feterms   : subinstr local feterms    "`var'" "`t'", word all
-    }
-  }
   return local feterms: copy local feterms
   return local absorbvars: copy local absorbvars
 end
