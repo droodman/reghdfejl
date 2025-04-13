@@ -1,4 +1,4 @@
-*! reghdfejl 1.1.1 28 March 2025
+*! reghdfejl 1.1.2 13 April 2025
 
 // The MIT License (MIT)
 //
@@ -742,11 +742,11 @@ program define _reghdfejl, eclass
     }
   }
 
-  if `haswt' ereturn scalar sumweights = e(N)
-  else {
+  if `haswt' {
     _jl: st_numscalar("`t'", sumweights);
     ereturn scalar sumweights = `t'
   }
+  else ereturn scalar sumweights = e(N)
 
   if 0`bs' {
     ereturn local vce bootstrap
@@ -917,3 +917,4 @@ end
 * 1.1.1  Change default residuals filename to _reghdfejl_resid[N] where N chosen by program to create unique var name
 *        Switch bs from Distributed to Threads & guarantee reproducible order of simulations with bs(, saving)
 *        Move parsing of absorb() into reghdfejl_parse_absorb, to share with partialhdfejl
+* 1.1.2  Fix 1.1.1 crash when absorbing string vars
