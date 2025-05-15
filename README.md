@@ -38,3 +38,8 @@ reghdfejl ln_wage grade age ttl_exp tenure (not_smsa = south), absorb(idcode yea
 reghdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(year occ_code) vce(bs, cluster(occ_code) reps(1000) seed(42) procs(4))
 
 ```
+
+## Documentation/citation
+Roodman, David. Forthcoming. "Julia as a universal platform for statistical software development." _Stata Journal_.
+
+Also on [arXiv](https://arxiv.org/abs/2404.09309).
