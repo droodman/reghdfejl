@@ -1,4 +1,4 @@
-*! reghdfejl 1.1.1 30 March 2025
+*! reghdfejl 1.1.3 30 May 2025
 
 cap program drop reghdfejl_parse_absorb
 program define reghdfejl_parse_absorb, rclass

@@ -1,4 +1,4 @@
-*! reghdfejl 1.1.2 13 April 2025
+*! reghdfejl 1.1.3 30 May 2025
 
 // The MIT License (MIT)
 //
@@ -136,7 +136,7 @@ program define _reghdfejl, eclass
     cap confirm var `exp'
     if _rc {
       tempname wtvar
-      gen double `wtvar' = `exp' if `touse'
+      qui gen double `wtvar' = `exp' if `touse'
     }
     else local wtvar: copy local exp
     local wtopt , weights = :`wtvar'
@@ -224,7 +224,9 @@ program define _reghdfejl, eclass
   }
 
   if `"`absorb'"' != "" {
-    reghdfejl_parse_absorb `absorb' if `touse'
+    local 0: copy local absorb
+    syntax anything(equalok), [SAVEfe]
+    reghdfejl_parse_absorb `anything' if `touse'
     foreach macro in fenames feterms namedfe absorb N_hdfe absorbvars {
       local `macro' `r(`macro')'
     }
@@ -597,7 +599,7 @@ program define _reghdfejl, eclass
     forvalues a = 1/`N_hdfe' {
       local fename: word `a' of `fenames'
       if "`savefe'`fename'"!="" {
-        if "`fename"=="" local fename __hdfe`a'__
+        if "`fename'"=="" local fename __hdfe`a'__
         jl GetVarsFromDF `fename' if `touse', source(FEs) col(FE`a')
         label var `fename' "[FE] `:word `a' of `absorb''"
       }
@@ -918,3 +920,4 @@ end
 *        Switch bs from Distributed to Threads & guarantee reproducible order of simulations with bs(, saving)
 *        Move parsing of absorb() into reghdfejl_parse_absorb, to share with partialhdfejl
 * 1.1.2  Fix 1.1.1 crash when absorbing string vars
+* 1.1.3  Fix 1.1.1 crash on savefe

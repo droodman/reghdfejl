@@ -1,4 +1,4 @@
-// Perform HDFE partialling in a common sample
+*! reghdfejl 1.1.3 30 May 2025
 
 cap program drop partialhdfejl
 program define partialhdfejl
@@ -60,7 +60,9 @@ program define _partialhdfejl
 
   reghdfejl_load
   
-  reghdfejl_parse_absorb `absorb' if `touse'
+  local 0: copy local absorb
+  syntax anything(equalok)
+  reghdfejl_parse_absorb `anything' if `touse'
   local feterms `r(feterms)'
   local absorbvars `r(absorbvars)'
   markout `touse' `absorbvars'
