@@ -6,7 +6,7 @@ This package bridges between Stata and the Julia package [FixedEffectModels.jl](
 ## Requirements
 * Stata 16 or later.
 * The Stata package [julia](https://github.com/droodman/julia.ado).
-* Julia 1.9.4 or later, installed following the instructions obtained via `help jl` in Stata.
+* Julia--which should be automatically installed on first use, if needed.
 
 ## Installation
 Install from SSC with
@@ -38,3 +38,8 @@ reghdfejl ln_wage grade age ttl_exp tenure (not_smsa = south), absorb(idcode yea
 reghdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(year occ_code) vce(bs, cluster(occ_code) reps(1000) seed(42) procs(4))
 
 ```
+
+## Documentation/citation
+Roodman, David. Forthcoming. "Julia as a universal platform for statistical software development." _Stata Journal_.
+
+Also on [arXiv](https://arxiv.org/abs/2404.09309).
