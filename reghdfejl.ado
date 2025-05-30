@@ -228,7 +228,7 @@ program define _reghdfejl, eclass
     syntax anything(equalok), [SAVEfe]
     reghdfejl_parse_absorb `anything' if `touse'
     foreach macro in fenames feterms namedfe absorb N_hdfe absorbvars {
-      local `macro' `r(`macro')'
+      local `macro' `"`r(`macro')'"'
     }
     markout `touse' `absorbvars'
   }
