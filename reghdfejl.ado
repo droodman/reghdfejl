@@ -1,4 +1,4 @@
-*! reghdfejl 1.1.3 30 May 2025
+*! reghdfejl 1.1.4 11 June 2025
 
 // The MIT License (MIT)
 //
@@ -889,6 +889,9 @@ program define Display
   }
 end
 
+cap program _julia_reghdfejl, plugin using(jl.plugin)  // create an extra handle to the plugin to reduce the chance that Stata unloads it
+
+
 * Version history
 * 0.3.0  Add support for absorbing string vars and clustering on interactions
 * 0.3.1  Add compact option
@@ -921,3 +924,4 @@ end
 *        Move parsing of absorb() into reghdfejl_parse_absorb, to share with partialhdfejl
 * 1.1.2  Fix 1.1.1 crash when absorbing string vars
 * 1.1.3  Fix 1.1.1 crash on savefe
+* 1.1.4  Add reference to jl.plugin to reduce chance Stata unloads it and causes crash
