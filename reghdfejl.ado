@@ -1,4 +1,4 @@
-*! reghdfejl 1.1.4 11 June 2025
+*! reghdfejl 1.1.5 22 June 2025
 
 // The MIT License (MIT)
 //
@@ -925,3 +925,4 @@ cap program _julia_reghdfejl, plugin using(jl.plugin)  // create an extra handle
 * 1.1.2  Fix 1.1.1 crash when absorbing string vars
 * 1.1.3  Fix 1.1.1 crash on savefe
 * 1.1.4  Add reference to jl.plugin to reduce chance Stata unloads it and causes crash
+* 1.1.5  Fix stupid partialhdfejl crash

@@ -1,4 +1,4 @@
-*! reghdfejl 1.1.3 30 May 2025
+*! reghdfejl 1.1.5 22 June 2025
 
 cap program drop partialhdfejl
 program define partialhdfejl
@@ -60,6 +60,7 @@ program define _partialhdfejl
 
   reghdfejl_load
   
+  local _varlist: copy local varlist
   local 0: copy local absorb
   syntax anything(equalok)
   reghdfejl_parse_absorb `anything' if `touse'
@@ -70,11 +71,11 @@ program define _partialhdfejl
   if "`compact'"!="" {
     tempfile compactfile
     save "`compactfile'"
-    keep `varlist' `absorbvars' `wtvar' `touse'
+    keep `_varlist' `absorbvars' `wtvar' `touse'
     qui keep if `touse'
   }
 
-  local vars `varlist' `absorbvars' `wtvar'
+  local vars `_varlist' `absorbvars' `wtvar'
   local vars: list uniq vars
 
   jl PutVarsToDF `vars' if `touse', nomissing double
@@ -83,14 +84,14 @@ program define _partialhdfejl
 
   if "`compact'" !="" drop _all
 
-  _jl: p = partial_out(df, @formula(`:subinstr local varlist " " " + ", all' ~ 1 `feterms') `wtopt', tol=`tolerance', maxiter=`iterations' `methodopt');
+  _jl: p = partial_out(df, @formula(`:subinstr local _varlist " " " + ", all' ~ 1 `feterms') `wtopt', tol=`tolerance', maxiter=`iterations' `methodopt');
 
   if "`compact'"!="" {
     _jl: GC.gc();
     use `compactfile'
   }
 
-  if `"`prefix'"' != "" local generate `prefix'`: subinstr local varlist " " " `prefix'", all'
+  if `"`prefix'"' != "" local generate `prefix'`: subinstr local _varlist " " " `prefix'", all'
     else if "`replace'"!="" {
       tempname t
       _jl: SF_scal_save("`t'", size(df)[1]);
@@ -101,7 +102,7 @@ program define _partialhdfejl
       }
     }
 
-  jl GetVarsFromDF `generate' if `touse', source(p[1]) cols(`varlist') `replace'
+  jl GetVarsFromDF `generate' if `touse', source(p[1]) cols(`_varlist') `replace'
 
   foreach var in `generate' {
     label var `var' "Residuals"
