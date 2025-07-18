@@ -881,11 +881,11 @@ program define Display
   }
 
   if "`table'"=="" ereturn display, level(`level') `options'
-  
+  local width `s(width)'
   if e(model)=="iv" {
-    local res `:di %10.3f e(widstat)'
-    di "Weak identification test (Kleibergen-Paap rk Wald F statistic):" _col(`=79-strlen("`res'")') as res `res'
-    di as txt "{hline 80}"
+    local res = trim(string(e(widstat), "%10.3f"))
+    di "Weak identification test (Kleibergen-Paap rk Wald F statistic):" _col(`=`width'-strlen("`res'")+1') as res `res'
+    di as txt "{hline `width'}"
   }
 end
 

@@ -210,6 +210,10 @@ If you want to run {help reghdfejl##postestimation:predict} afterward but don't 
 This will delete all preexisting variables matching {it:__hdfe*__} and create new ones as required.
 Example: {cmd:reghdfejl price weight, absorb(turn trunk, savefe)}.
 
+{pmore}
+Saved fixed effects should match those one gets when running {cmd:reghdfe} with the {cmd:nocons} option, because {cmd:reghdfejl} always absorbs the constant term. The saved fixed effects
+will differ from those produced by {cmd:reghdfe} without {cmd:nocons}, by a constant amount equal to the constant
+term estimated by {cmd:reghdfe}. 
 {marker opt_model}{...}
 
 {marker opt_vce}{...}
