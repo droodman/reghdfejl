@@ -1,4 +1,4 @@
-*! reghdfejl 1.1.5 22 June 2025
+*! reghdfejl 1.1.6 18 July 2025
 
 // The MIT License (MIT)
 //
@@ -104,14 +104,14 @@ program define _reghdfejl, eclass
   }
 
 	syntax anything [if] [in] [aw pw iw/], [Absorb(string) Robust CLuster(string) SMall vce(string) RESIDuals ITerations(integer 16000) gpu THReads(integer 0) ///
-                                          noSAMPle TOLerance(string) Level(real `c(level)') NOHEADer NOTABLE compact VERBose INTERruptible noCONStant ///
+                                          noSAMPle TOLerance(real 1e-8) Level(real `c(level)') NOHEADer NOTABLE compact VERBose INTERruptible noCONStant ///
                                           /*EXPosure(varlist max=1) OFFset(varlist max=1)*/ KEEPSINgletons SEParation(string) FAMily(string) link(string) ivreg2 *]
   local sample = "`sample'"==""
   local compact = "`compact'"!=""
   local ivreg2 = "`ivreg2'"!=""
   local GLM = `"`family'`link'"'!=""
 
-  _assert `iterations'>0, msg({cmdab:It:erations()} must be positive) rc(198)
+  _assert `iterations'>0, msg({cmdab:it:erations()} must be positive) rc(198)
   local iteropt , maxiter=`iterations'
 
 	_get_eformopts, soptions eformopts(`options') allowed(hr shr IRr or RRr)
@@ -124,13 +124,13 @@ program define _reghdfejl, eclass
   if "`gpu'"!="" local methodopt , method = :`gpulib'
 
   if `threads' local threadsopt , nthreads = `threads'
+
   if "`keepsingletons'"!="" local singletonopt , drop_singletons = false
 
   reghdfejl_load
 
   local haswt = `"`exp'"' != ""
   if `haswt' {
-    local haswt 1
     local wtype: copy local weight
     local wexp `"=`exp'"'
     cap confirm var `exp'
@@ -160,7 +160,7 @@ program define _reghdfejl, eclass
   }
   if !`hasiv' local ivreg2 0
 
-  markout `touse' `depname' `instdname' `inexogname' `instsname'
+  markout `touse' `wtvar' `depname' `instdname' `inexogname' `instsname'
 
   if `"`vce'"' != "" {
     _assert `"`cluster'"'=="", msg(only one of cluster() and vce() can be specified) rc(198)
@@ -190,9 +190,8 @@ program define _reghdfejl, eclass
 
       cap confirm numeric var `cluster'
       if _rc {
-        tempvar t
-        qui egen long `t' = group(`cluster')
-        local bslcuster: copy local t
+        tempvar bscluster
+        qui egen long `bscluster' = group(`cluster')
       }
       else local bscluster: copy local cluster
 
@@ -240,7 +239,6 @@ program define _reghdfejl, eclass
 
     _assert !`hasiv', msg(instrumental variables not accepted for nonlinear models) rc(198)
     _assert !`haswt', msg(weights not yet supported for nonlinear models) rc(198)
-    _assert "`tolerance'"=="", msg(the tolerance() option is for linear models) rc(198)
 
     if `"`separation'"'!="" {
       local 0, `separation'
@@ -303,7 +301,7 @@ program define _reghdfejl, eclass
       }
     }
   }
-  else if `"`tolerance'"'!="" {
+  else {  // only applicable to linear models fit with FixedEffectModels.jl
     _assert `tolerance'>0, msg({cmdab:tol:erance()} must be positive) rc(198)
     local tolopt, tol=`tolerance', progress_bar=false
   }
@@ -350,7 +348,7 @@ program define _reghdfejl, eclass
   else {
     // translate varlists into StatsModels formulas, translating factor terms directly when possible, fvrevar'ing otherwise; do in main proc because may create temp vars
     tempname termtab _termtab dummyrows freqs
-    mata `termtab' = J(0,3,"")  // i/c, ib value, varname
+    mata `termtab' = J(0,3,"")  // combined table of factor var terms with cols for i/c, ib value, varname
     foreach varset in dep inexog instd insts {
       if `'"``varset'name'"'!="" {
         if `hasiv' {
@@ -362,22 +360,22 @@ program define _reghdfejl, eclass
         gettoken term varlist: varlist, bind
         local goodterms
         while "`term'"!="" {
-          mata `_termtab' = J(0,3,"")
+          mata `_termtab' = J(0,3,"")  // table of factor var terms with cols for i/c, ib value, varname
           local norevar 1
           tokenize `term', parse("#")
           local _term `*'
           local newterm
           foreach factor of local _term {
             if "`factor'" != "#" {
-              if regexm("`factor'", "^i\.(.*)$") {
+              if regexm("`factor'", "^i\.(.*)$") {  // "i.[varname]"?
                 sum `=regexs(1)' if `touse', meanonly
                 if r(max)>r(min) mata `_termtab' = `_termtab' \ "i", "nothing", "`=regexs(1)'"  // skip i.var if var is constant in the sample
               }
-              else if regexm("`factor'", "^i(b([0-9]+))\.(.*)$") {
+              else if regexm("`factor'", "^i(b([0-9]+))\.(.*)$") {  // "ib[...].[varname]"?
                 sum `=regexs(3)' if `touse', meanonly
                 if r(max)>r(min) mata `_termtab' = `_termtab' \ "i", "`=regexs(2)'", "`=regexs(3)'"
               }
-              else {
+              else {  // continuous var, with or without "c."
                 if substr(`"`factor'"',1,2)=="c." local factor = substr("`factor'", 3, .)
                 cap confirm var `factor'
                 if _rc {  // bad syntax; or ts op or "i()...." that can't be expressed with StatsModels.jl DummyCoding()
@@ -415,13 +413,14 @@ program define _reghdfejl, eclass
         local `varset'formula: subinstr local `varset'formula "#" "&", all
       }
     }
-    mata `termtab' = uniqrows(`termtab')
+    mata `termtab' = uniqrows(`termtab')  // get list of all primary variables to copy to Julia, deleting duplicates
     mata `dummyrows' = selectindex(`termtab'[,1]:=="i")
     mata st_local("dummyopt", invtokens(":" :+ `termtab'[`dummyrows',3]' :+ "=>DummyCoding(base=" :+ `termtab'[`dummyrows',2]' :+ "), "))
     local dummyopt , contrasts=Dict{Symbol, DummyCoding}(`dummyopt')
+
     mata `dummyrows' = uniqrowsfreq(uniqrows(`termtab'[, 1\3])[,2], `freqs'=.)
     cap mata st_local("dups", invtokens(`dummyrows'[selectindex(`freqs':>1)]'))
-    foreach dup in `dups' {  // any vars appearing with both i. and c.? (rare)
+    foreach dup in `dups' {  // any vars appearing with both i. and c.? (rare). reg() contrasts option needs them to have different names for different usages
       tempname t
       local dfaliascmds `dfaliascmds' df.`t' = df.`dup'; 
       foreach varset in dep inexog instd insts {
@@ -447,11 +446,11 @@ program define _reghdfejl, eclass
 
   
   jl PutVarsToDF `putvars' `iftouse', nomissing doubleonly nolabel  // put all vars in Julia DataFrame named df; making it a global makes it visible to workers, for bs
-  _jl: `dfaliascmds';
+  _jl: `dfaliascmds';  // create duplicate copies of vars used by both i. and c. (rare)
 
   if "`verbose'"!="" jl: df
 
-  qui _jl: size(df,1)
+  _jl: size(df,1)
   _assert `r(ans)', rc(2001) msg(insufficient observations)
 
   if `compact' drop _all
@@ -532,7 +531,7 @@ program define _reghdfejl, eclass
   local flinejl f = @formula(`depformula' ~ `inexogformula' `ivarg' `feterms')
   local cmdlinejl `nl'reg(df, f `familyopt' `linkopt' `wtopt' `vcovopt' `methodopt' `threadsopt' `singletonopt' `saveopt' `sepopt' `tolopt' `iteropt' `dummyopt')
   _jl: `flinejl';
-  _jl: m = 0
+  _jl: m = 0;  // make m exist even if estimation fails
   if "`verbose'"!="" {
     di `"`flinejl'"'
     di `"m = `cmdlinejl'"'
@@ -542,7 +541,7 @@ program define _reghdfejl, eclass
 
   _assert `"`r(ans)'"'!="sample is empty", msg(no observations) rc(2000)
   
-  qui jl: Int(m==0)
+  _jl: Int(m==0)
   _assert !`r(ans)', msg(estimation failed) rc(199)
   
   tempname k
@@ -550,7 +549,7 @@ program define _reghdfejl, eclass
   _jl: reghdfejl.sizedf = size(df);
   if `haswt' _jl: sumweights = mapreduce((w,s)->(s ? w : 0), +, df.`wtvar', m.esample; init = 0);
 
-  if `k' & 0`bs' {
+  if `k' & 0`bs' {  // bootstrap vce
     local hasclust = "`bscluster'"!=""
 
     _jl: batches = [floor(Int, `reps'/`procs'*(t-1))+1:floor(Int,`reps'/`procs'*t) for t ∈ 1:`procs'];  // indexes to split simulations by CPU thread
@@ -633,15 +632,15 @@ program define _reghdfejl, eclass
     _jl: reghdfejl.b = coef(m);
     _jl: reghdfejl.V = iszero(0`bs') ? vcov(m) : reghdfejl.Vbs;
     _jl: reghdfejl.V = replace!(reghdfejl.V, NaN=>0.);
-    _jl: st_global("reghdfejl_ans", join(coefnames(m), "|"))
+    _jl: st_global("reghdfejl_ans", join(coefnames(m), "|"));
     varlistJ2S, jlcoefnames($reghdfejl_ans) vars(`inexogvars' `instdvars') varnames(`inexognames' `instdnames')
     global reghdfejl__coefnames `r(stcoefs)'
     global reghdfejl__instdnames `instdnames'
-    _jl: reghdfejl.coefnames = "reghdfejl__coefnames" |> st_global |> split
+    _jl: reghdfejl.coefnames = "reghdfejl__coefnames" |> st_global |> split;
     _jl: `I' = [s=="_cons" ? 3 : s in split(st_global("reghdfejl__instdnames")) ? 1 : 2 for s in reghdfejl.coefnames] |> sortperm;  // order endog-exog-cons
-    _jl: reghdfejl.b = collect(reghdfejl.b[`I']')
+    _jl: reghdfejl.b = collect(reghdfejl.b[`I']');
     _jl: reghdfejl.V = reghdfejl.V[`I',`I'];
-    _jl: st_global("reghdfejl__coefnames", join(reghdfejl.coefnames[`I'], " "))
+    _jl: st_global("reghdfejl__coefnames", join(reghdfejl.coefnames[`I'], " "));
     jl GetMatFromMat `b', source(reghdfejl.b)
     jl GetMatFromMat `V', source(reghdfejl.V)
     mat colnames `b' = $reghdfejl__coefnames
@@ -680,7 +679,7 @@ program define _reghdfejl, eclass
     _jl: reghdfejl.b = nothing
     global reghdfejl__coefnames
   }
-  else local hascons = 0
+  else local hascons 0
 
   ereturn post `b' `V', depname(`depname') obs(`=`N'') buildfvinfo findomitted `=cond(`sample', "esample(`touse')", "")'
 
@@ -854,8 +853,7 @@ program define Display
 
   if !e(drop_singletons) di as err `"WARNING: Singleton observations not dropped; statistical significance is biased {browse "http://scorreia.com/reghdfe/nested_within_cluster.pdf":(link)}"'
   if e(num_singletons) di as txt `"(dropped `e(num_singletons)' {browse "http://scorreia.com/research/singletons.pdf":singleton observations})"'
-  di as txt `"({browse "http://scorreia.com/research/hdfe.pdf":MWFE estimator} converged in `e(ic)' iterations)"'
-  di
+  di as txt `"({browse "http://scorreia.com/research/hdfe.pdf":MWFE estimator} converged in `e(ic)' iterations)"' _n
 
   if "`header'"=="" {
     di as txt "`e(title)' " _col(51) "Number of obs" _col(67) "= " as res %10.0fc e(N)
@@ -881,8 +879,9 @@ program define Display
   }
 
   if "`table'"=="" ereturn display, level(`level') `options'
-  local width `s(width)'
+
   if e(model)=="iv" {
+    local width `s(width)'
     local res = trim(string(e(widstat), "%10.3f"))
     di "Weak identification test (Kleibergen-Paap rk Wald F statistic):" _col(`=`width'-strlen("`res'")+1') as res `res'
     di as txt "{hline `width'}"
@@ -926,3 +925,4 @@ cap program _julia_reghdfejl, plugin using(jl.plugin)  // create an extra handle
 * 1.1.3  Fix 1.1.1 crash on savefe
 * 1.1.4  Add reference to jl.plugin to reduce chance Stata unloads it and causes crash
 * 1.1.5  Fix stupid partialhdfejl crash
+* 1.1.6  Change default tolerance() from 1e-6 to 1e-8. Tidy up display of KP F stat.

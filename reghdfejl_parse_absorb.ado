@@ -12,7 +12,7 @@ program define reghdfejl_parse_absorb, rclass
     local `++i': copy local term
     gettoken term anything: anything, bind parse(" =")
   }
-  local `++i'
+  local `++i'  // zap next to tokens
   local `++i'
 
   macro drop reghdfejl_stringvar_ct
@@ -27,7 +27,7 @@ program define reghdfejl_parse_absorb, rclass
     cap confirm var `1'
     if !_rc {
       cap confirm numeric var `1'
-      if _rc {
+      if _rc {  // convert string absorb var to numeric
         global reghdfejl_stringvar_ct = 0$reghdfejl_stringvar_ct + 1
         qui egen long reghdfejl_stringvar_$reghdfejl_stringvar_ct = group(`1') `if'
         local 1 reghdfejl_stringvar_$reghdfejl_stringvar_ct
