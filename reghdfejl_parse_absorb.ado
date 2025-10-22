@@ -12,7 +12,7 @@ program define reghdfejl_parse_absorb, rclass
     local `++i': copy local term
     gettoken term anything: anything, bind parse(" =")
   }
-  local `++i'  // zap next to tokens
+  local `++i'  // zap next two tokens
   local `++i'
 
   macro drop reghdfejl_stringvar_ct

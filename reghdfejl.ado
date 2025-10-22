@@ -33,6 +33,7 @@ program define reghdfejl
   cap noi _reghdfejl `0'
   local rc = _rc
   qui jl SetEnv `env'
+  
   if `rc' & "`noncompactfile'"!="" use `noncompactfile'
   forvalues i=1/0$reghdfejl_stringvar_ct {
     cap drop reghdfejl_stringvar_`i'
@@ -145,6 +146,7 @@ program define _reghdfejl, eclass
   
   local hasiv 0
   gettoken depname anything: anything, bind
+  _fv_check_depvar `depname'
   while "`anything'"!="" {
     gettoken term anything: anything, match(parenflag) bind
     if "`parenflag'"=="(" {
@@ -328,8 +330,6 @@ program define _reghdfejl, eclass
     _assert !`ivreg2', msg(residuals, savefe, and namedfe features not available when using ivreg2) rc(198)
     local saveopt , save = :`=cond("`residuals'"=="", "fe", cond("`savefe'`namedfe'"=="", "residuals", "all"))'
   }
-
-  _fv_check_depvar `dep'
 
   if `ivreg2' {
     foreach varset in dep inexog instd insts {
@@ -626,7 +626,6 @@ program define _reghdfejl, eclass
 
   if `k' {
     tempname b V
-    _assert `"`r(ans)'"'!="sample is empty", msg(no coefficients estimated) rc(111)
     _jl: st_numscalar("`t'", coefnames(m)[1]=="(Intercept)");
     local hascons = `t'
     _jl: reghdfejl.b = coef(m);
