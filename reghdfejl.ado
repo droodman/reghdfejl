@@ -1,4 +1,4 @@
-*! reghdfejl 1.1.6 18 July 2025
+*! reghdfejl 1.1.7 4 November 2025
 
 // The MIT License (MIT)
 //
@@ -925,3 +925,4 @@ cap program _julia_reghdfejl, plugin using(jl.plugin)  // create an extra handle
 * 1.1.4  Add reference to jl.plugin to reduce chance Stata unloads it and causes crash
 * 1.1.5  Fix stupid partialhdfejl crash
 * 1.1.6  Change default tolerance() from 1e-6 to 1e-8. Tidy up display of KP F stat.
+* 1.1.7  BLISBLAS 0.2.0 causing crash, so switch to MKL/OpenBLAS
