@@ -5,3 +5,5 @@
 *.stswp
 reghdfejl with partially implemented fv passthru.do
 .DS_Store
+debug.jl
+debug2.jl
