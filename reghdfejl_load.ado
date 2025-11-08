@@ -1,10 +1,10 @@
-*! reghdfejl_load  1.1.6 18 July 2025
+*! reghdfejl_load  1.1.7 8 November 2025
 
 cap program drop reghdfejl_load
 program define reghdfejl_load
   version 15
   
-  local JLVERSION 1.0.1
+  local JLVERSION 1.2.0
 
   if `"$reghdfejl_loaded"'=="" {
     cap jl version
@@ -25,23 +25,23 @@ program define reghdfejl_load
     }
 
     if c(os)=="MacOSX" {
-      jl AddPkg AppleAccelerate
-      _jl: using AppleAccelerate;
+      jl AddPkg AppleAccelerate, ver(0.4.5)
+      jl AddPkg Metal, ver(1.9.0)
+      _jl: using AppleAccelerate, Metal;
     }
     else if c(lapack_mkl)=="on" {
-      jl AddPkg MKL
-      _jl: using MKL;
+      jl AddPkg MKL, ver(0.9.0)
+      jl AddPkg CUDA, ver(5.9.2)
+      _jl: using MKL, CUDA;
     }  // else for AMD systems, default to OpenBLAS
 
-    local gpulib = cond(c(os)=="MacOSX", "Metal", "CUDA")
-    jl AddPkg `gpulib'
-    jl AddPkg StableRNGs
-    jl AddPkg OrderedCollections
-    jl AddPkg FixedEffectModels, minver(1.11.0)
-    jl AddPkg GLFixedEffectModels, minver(0.5.3)
-    jl AddPkg Distributions, minver(0.25.107)
-    jl AddPkg Vcov, minver(0.8.1)
-    _jl: using `gpulib', FixedEffectModels, Vcov, StableRNGs, Distributed, GLFixedEffectModels, Distributions, OrderedCollections;
+    jl AddPkg StableRNGs, ver(1.0.3)
+    jl AddPkg OrderedCollections, ver(1.8.1)
+    jl AddPkg FixedEffectModels, ver(1.12.0)
+    jl AddPkg GLFixedEffectModels, ver(0.5.5)
+    jl AddPkg Distributions, ver(0.25.122)
+    jl AddPkg Vcov, ver(0.8.1)
+    _jl: using FixedEffectModels, Vcov, StableRNGs, Distributed, GLFixedEffectModels, Distributions, OrderedCollections;
     _jl: module reghdfejl global k, sizedf, p, res, esample, D, s, id, reps, b, bbs, V, Vbs, coefnames, rngs, dfs, Nclust, bssize, wts, dst end;  // name space for the package
 
     global reghdfejl_loaded 1
