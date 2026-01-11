@@ -1,4 +1,5 @@
 [deps]
+AppleAccelerate = "13e28ba4-7ad8-5781-acae-3021b1ed3924"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
@@ -6,6 +7,7 @@ Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 FixedEffectModels = "9d5cd8c9-2029-5cab-9928-427838db53e3"
 GLFixedEffectModels = "bafb0ae5-e5f5-5100-81b6-6a55d777c812"
 MKL = "33e6dc65-8f57-5167-99aa-e5a354878fb2"
+Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
 OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 Vcov = "ec2bfdc2-55df-4fc9-b9ae-4958c2cf2486"
