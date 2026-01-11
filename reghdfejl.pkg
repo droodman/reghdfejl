@@ -14,6 +14,8 @@ d
 d Author: David Roodman
 d Support: email david@@davidroodman.com
 d
+F reghdfejl_project.toml
+F reghdfejl_manifest.toml
 f reghdfejl.ado
 f reghdfejl_p.ado
 f reghdfejl_estat.ado
@@ -22,5 +24,3 @@ f reghdfejl_masker.ado
 f reghdfejl_load.ado
 f reghdfejl_parse_absorb.ado
 f partialhdfejl.ado
-F reghdfejl_project.toml
-F reghdfejl_manifest.toml
