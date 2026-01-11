@@ -22,5 +22,5 @@ f reghdfejl_masker.ado
 f reghdfejl_load.ado
 f reghdfejl_parse_absorb.ado
 f partialhdfejl.ado
-f reghdfejl_project.toml
-f reghdfejl_manifest.toml
+F reghdfejl_project.toml
+F reghdfejl_manifest.toml
