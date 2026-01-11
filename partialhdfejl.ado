@@ -1,11 +1,11 @@
-*! reghdfejl 1.1.5 22 June 2025
+*! partialhdfejl 1.1.8 11 January 2026
 
 cap program drop partialhdfejl
 program define partialhdfejl
   version 15
   qui jl GetEnv
   local env `r(env)'
-  qui jl SetEnv reghdfejl
+  reghdfejl_load
   cap noi _partialhdfejl `0'
   local rc = _rc
   qui jl SetEnv `env'
@@ -57,8 +57,6 @@ program define _partialhdfejl
     else local wtvar `exp'
     local wtopt , weights = :`wtvar'
   }
-
-  reghdfejl_load
   
   local _varlist: copy local varlist
   local 0: copy local absorb

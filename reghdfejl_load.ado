@@ -1,10 +1,10 @@
-*! reghdfejl_load  1.1.7 8 November 2025
+*! reghdfejl_load  1.1.8 11 January 2026
 
 cap program drop reghdfejl_load
 program define reghdfejl_load
   version 15
   
-  local JLVERSION 1.2.1
+  local jlversion 1.2.5
 
   if `"$reghdfejl_loaded"'=="" {
     cap jl version
@@ -18,30 +18,24 @@ program define reghdfejl_load
     local v1 `1'
     local v2 `3'
     local v3 `5'
-    parse "`JLVERSION'", parse(".")
+    parse "`jlversion'", parse(".")
     if `v1'<`1' | `v1'==`1' & `v2'<`3' | `v1'==`1' & `v2'==`3' & `v3'<`5' {
       di as txt "The Stata package {cmd:julia} is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
       ssc install julia, replace
     }
 
+    qui findfile reghdfejl_project.toml
+    local projectfile `r(fn)'
+    qui findfile reghdfejl_manifest.toml
+    jl SetEnv reghdfejl, update project(`projectfile') manifest(`r(fn)') pin  // update the project environment if the definition files in the ado path are newer
+ 
     if c(os)=="MacOSX" {
-      jl AddPkg AppleAccelerate, ver(0.4.5)
-      jl AddPkg Metal, ver(1.9.0)
       _jl: using AppleAccelerate, Metal;
     }
     else if c(lapack_mkl)=="on" {
-      jl AddPkg MKL, ver(0.9.0)
-      jl AddPkg CUDA, ver(5.9.2)
       _jl: using MKL, CUDA;
     }  // else for AMD systems, default to OpenBLAS
-
-    jl AddPkg StableRNGs, ver(1.0.3)
-    jl AddPkg OrderedCollections, ver(1.8.1)
-    jl AddPkg FixedEffectModels, ver(1.12.0)
-    jl AddPkg GLFixedEffectModels, ver(0.5.5)
-    jl AddPkg Distributions, ver(0.25.122)
-    jl AddPkg Vcov, ver(0.8.1)
-    _jl: using FixedEffectModels, Vcov, StableRNGs, Distributed, GLFixedEffectModels, Distributions, OrderedCollections;
+    _jl: using OrderedCollections, StableRNGs, Distributions, Vcov, FixedEffectModels, GLFixedEffectModels;
     _jl: module reghdfejl global k, sizedf, p, res, esample, D, s, id, reps, b, bbs, V, Vbs, coefnames, rngs, dfs, Nclust, bssize, wts, dst end;  // name space for the package
 
     global reghdfejl_loaded 1
