@@ -26,6 +26,7 @@ g OSX.ARM64 Manifest.toml reghdfejl_manifest.toml
 g MACINTEL64 Manifest.toml reghdfejl_manifest.toml
 g OSX.X8664 Manifest.toml reghdfejl_manifest.toml
 g LINUX64 Manifest.toml reghdfejl_manifest.toml
+h reghdfejl_project.toml
 f reghdfejl.ado
 f reghdfejl_p.ado
 f reghdfejl_estat.ado
