@@ -22,3 +22,5 @@ f reghdfejl_masker.ado
 f reghdfejl_load.ado
 f reghdfejl_parse_absorb.ado
 f partialhdfejl.ado
+G Project.tomlWIN64 Project.toml
+G Manifest.tomlWIN64 Manifest.toml
