@@ -236,8 +236,8 @@ bootstrap. In expectation, {cmd: reghdfejl ..., ... vce(bs,} {it:bsoptions}{cmd:
 first is faster because it avoids copying data from Stata to Julia on every replication and can exploit mulitasking. {it:bsoptions} 
 may include any of the following suboptions: {opt r:obust}, {opt cl:uster(varname)}, {opt seed(#)}, {opt reps(#)}, {opt mse}, {opt size(#)}, 
 {cmdab:sav:ing(}{it:filename} {cmd:[, {ul:doub}le replace])}, and 
-{opt proc:s(#)}. All but the last are standard {help bootstrap:bootstrap options}. The last instructs {cmd:reghdfejl} to launch several
-copies of Julia in order to run the bootstrap in parallel. The {opt proc:s(#)} suboption is semantically distinct from {cmd:reghdfejl}'s {opt threads()}
+{opt proc:s(#)}. All but the last are standard {help bootstrap:bootstrap options}. The last instructs {cmd:reghdfejl} to use multithreading--splitting work 
+across multiple CPU cores on a chip--in order to speed up the bootstrap. The {opt proc:s(#)} suboption is semantically distinct from {cmd:reghdfejl}'s {opt threads()}
 option. The latter triggers low-level multitasking: the Julia package FixedEffectModels.jl spreads certain loops across multiple threads within one Julia 
 instance. The former splits the work at a higher level, which is more efficient. On each thread, FixedEffectModels.jl is run in single-thread mode,
 repeatedly running the model on bootstrapped data. While 
