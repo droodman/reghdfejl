@@ -1,10 +1,10 @@
-*! reghdfejl_load  1.1.8 11 January 2026
+*! reghdfejl_load  1.1.8 12 January 2026
 
 cap program drop reghdfejl_load
 program define reghdfejl_load
   version 15
   
-  local jlversion 1.2.5
+  local jlversion 1.3.0
 
   if `"$reghdfejl_loaded"'=="" {
     cap jl version
@@ -27,7 +27,7 @@ program define reghdfejl_load
     qui findfile reghdfejl_project.toml
     local projectfile `r(fn)'
     qui findfile reghdfejl_manifest.toml
-    jl SetEnv reghdfejl, update project(`projectfile') manifest(`r(fn)') pin  // update the project environment if the definition files in the ado path are newer
+    qui jl SetEnv reghdfejl, update project(`projectfile') manifest(`r(fn)') pin  // update the project environment if the definition files in the ado path are newer
  
     if c(os)=="MacOSX" {
       _jl: using AppleAccelerate, Metal;
