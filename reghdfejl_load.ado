@@ -14,7 +14,7 @@ program define reghdfejl_load
       exit 198
     }
 
-    _jl: Int(v"`r(version)'" < v"`jlversion'");
+    _jl: Int(v"`r(version)'" < v"`jlversion'")
     if `r(ans)' {
       di as txt "The Stata package {cmd:julia} is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
       ssc install julia, replace
