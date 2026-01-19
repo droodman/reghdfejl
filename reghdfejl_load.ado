@@ -4,7 +4,7 @@ cap program drop reghdfejl_load
 program define reghdfejl_load
   version 15
   
-  local jlversion 1.3.0
+  local jlversion 2.0.0
 
   if `"$reghdfejl_loaded"'=="" {
     cap jl version
@@ -14,12 +14,8 @@ program define reghdfejl_load
       exit 198
     }
 
-    parse "`r(version)'", parse(".")
-    local v1 `1'
-    local v2 `3'
-    local v3 `5'
-    parse "`jlversion'", parse(".")
-    if `v1'<`1' | `v1'==`1' & `v2'<`3' | `v1'==`1' & `v2'==`3' & `v3'<`5' {
+    _jl: Int(v"`r(version)'" < v"`jlversion'");
+    if `r(ans)' {
       di as txt "The Stata package {cmd:julia} is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
       ssc install julia, replace
     }
@@ -27,7 +23,7 @@ program define reghdfejl_load
     qui findfile reghdfejl_project.toml
     local projectfile `r(fn)'
     qui findfile reghdfejl_manifest.toml
-    qui jl SetEnv reghdfejl, update project(`projectfile') manifest(`r(fn)') pin  // update the project environment if the definition files in the ado path are newer
+    qui jl SetEnv @reghdfejl, update project(`projectfile') manifest(`r(fn)') pin  // update the project environment if the definition files in the ado path are newer
  
     if c(os)=="MacOSX" {
       _jl: using AppleAccelerate, Metal;
