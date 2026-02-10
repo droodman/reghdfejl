@@ -28,8 +28,9 @@ program define reghdfejl_load
     if c(os)=="MacOSX" {
       _jl: using AppleAccelerate, Metal;
     }
-    else if c(lapack_mkl)=="on" {
-      _jl: using MKL, CUDA;
+    else {
+      _jl: using CUDA;
+      if "`c(lapack_mkl)'"=="on" _jl: using MKL;
     }  // else for AMD systems, default to OpenBLAS
     _jl: using OrderedCollections, StableRNGs, Distributions, Vcov, FixedEffectModels, GLFixedEffectModels;
     _jl: module reghdfejl global k, sizedf, p, res, esample, D, s, id, reps, b, bbs, V, Vbs, coefnames, rngs, dfs, Nclust, bssize, wts, dst end;  // name space for the package

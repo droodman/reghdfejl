@@ -335,6 +335,7 @@ the resulting variable will always be of type {it:double}.{p_end}
 {phang}. {stata sysuse auto}{p_end}
 {phang}. {stata reghdfejl price weight length, absorb(rep78)}{p_end}
 {phang}. {stata reghdfejl price weight length, absorb(rep78) vce(cluster rep78)}{p_end}
+{phang}. {stata reghdfejl price weight length, absorb(rep78) vce(cluster rep78) gpu}{p_end}
 
 {phang}. {stata webuse nlswork}{p_end}
 {phang}. {stata reghdfejl ln_wage age ttl_exp tenure not_smsa south, absorb(idcode year)}{p_end}
