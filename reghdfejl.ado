@@ -1,4 +1,4 @@
-*! reghdfejl 1.1.8 12 January 2026
+*! reghdfejl 1.1.9 11 October 2026
 
 // The MIT License (MIT)
 //
@@ -35,14 +35,14 @@ program define reghdfejl
     exit 0
   }
 
-  qui jl GetEnv
+  jl GetEnv, quietly
   local env `r(env)'
   reghdfejl_load
 
   cap noi _reghdfejl `0'
 
   local rc = _rc
-  qui jl SetEnv `env'
+  jl SetEnv `env', quietly
   
   if `rc' & "`noncompactfile'"!="" use `noncompactfile'
   forvalues i=1/0$reghdfejl_stringvar_ct {
@@ -55,7 +55,6 @@ end
 cap program drop _reghdfejl
 program define _reghdfejl, eclass
   version 15
-
   local cmdline: copy local 0
 
   if `"`0'"'=="mask" {
@@ -125,7 +124,15 @@ program define _reghdfejl, eclass
   marksample touse
 
   local gpulib = cond(c(os)=="MacOSX", "Metal", "CUDA")
-  if "`gpu'"!="" local methodopt , method = :`gpulib'
+  if "`gpu'"!="" {
+    local methodopt , method = :`gpulib'
+    if c(os)=="MacOSX" {
+      _jl: using AppleAccelerate, Metal;
+    }
+    else if c(lapack_mkl)=="on" {
+      _jl: using MKL, CUDA;
+    }  // else for AMD systems, default to OpenBLAS
+  }
 
   if `threads' local threadsopt , nthreads = `threads'
 
@@ -237,6 +244,8 @@ program define _reghdfejl, eclass
   else local feterms + `="`constant'"==""'
 
   if `GLM' {
+    _jl: using GLFixedEffectModels;
+    
     local nl nl
     _assert `"`absorb'"'!="", msg(Doesn't yet accept nonlinear models with no fixed effects. Use {help glm} instead.) rc(198)
 
@@ -445,8 +454,8 @@ program define _reghdfejl, eclass
   }
   else local iftouse if `touse'
 
-  
   jl PutVarsToDF `putvars' `iftouse', nomissing doubleonly nolabel  // put all vars in Julia DataFrame named df; making it a global makes it visible to workers, for bs
+
   _jl: `dfaliascmds';  // create duplicate copies of vars used by both i. and c. (rare)
 
   if "`verbose'"!="" jl: df
@@ -465,14 +474,14 @@ program define _reghdfejl, eclass
       jl GetVarsFromMat `:word `i' of `allpartialled'' `iftouse', source(reghdfejl.res)
       _jl: reghdfejl.res = nothing;
     }
-    _jl: st_numscalar("`df_a'", dof_fes(reghdfejl.p))
+    _jl: st_numscalar("`df_a'", dof_fes(reghdfejl.p));
     _jl: st_numscalar("`ic'", reghdfejl.p.iterations);
     di as txt `"({browse "http://scorreia.com/research/hdfe.pdf":MWFE estimator} converged in `=`ic'' iterations)"'
     _jl: reghdfejl.esample = Vector{Float64}(reghdfejl.p.esample);
 //     _jl: reghdfejl.p = partial_out(df, @formula(`:subinstr local allvars " " " + ", all' ~ 1 `feterms') `wtopt' `tolopt' `iteropt' `methodopt');
 //     jl GetVarsFromDF `allpartialled' `iftouse', source(reghdfejl.p[1]) cols(`allvars')
-//     _jl: st_numscalar("`df_a'", reghdfejl.p[5] - 1)
-//     _jl: st_numscalar("`ic'", maximum(reghdfejl.p[3]))
+//     _jl: st_numscalar("`df_a'", reghdfejl.p[5] - 1);
+//     _jl: st_numscalar("`ic'", maximum(reghdfejl.p[3]));
 //     _jl: reghdfejl.esample = Vector{Float64}(reghdfejl.p[2]);
 
     jl GetVarsFromMat `touse' `iftouse', source(reghdfejl.esample) replace
@@ -496,7 +505,7 @@ program define _reghdfejl, eclass
     mat `M' = e(b)
     local colnames: colnames `M'
     _jl: reghdfejl.D = Dict(x=>y for (x,y) in zip(split("`allpartialled'"), split("`allvars'")));  // mapping from partialled, revar'd var names for ivreg2 back to display names
-    _jl: st_global("reghdfejl_ans", join(getindex.(Ref(reghdfejl.D), split("`colnames'")), " "))
+    _jl: st_global("reghdfejl_ans", join(getindex.(Ref(reghdfejl.D), split("`colnames'")), " "));
     mat colnames `M' = $reghdfejl_ans
     ereturn repost b=`M', rename
     foreach mat in S W {
@@ -508,7 +517,7 @@ program define _reghdfejl, eclass
     foreach macro in depvar depvar0 depvar1 instd instd0 instd1 insts insts0 insts1 exexog exexog0 exexog1 inexog inexog0 inexog1 partial partial0 partial1 {
       local t `e(`macro')'
       if "`t'"!="" {
-        _jl: st_global("reghdfejl_ans", join(getindex.(Ref(reghdfejl.D), split("`t'")), " "))
+        _jl: st_global("reghdfejl_ans", join(getindex.(Ref(reghdfejl.D), split("`t'")), " "));
         ereturn local `macro' $reghdfejl_ans
       }
     }
@@ -538,13 +547,13 @@ program define _reghdfejl, eclass
     di `"m = `cmdlinejl'"'
     jl, `interruptible': m = `cmdlinejl'
   }
-  else _jl, `interruptible': m = `cmdlinejl';
+  else _jl, `interruptible': m = `cmdlinejl'
 
   _assert `"`r(ans)'"'!="sample is empty", msg(no observations) rc(2000)
   
   _jl: Int(m==0)
   _assert !`r(ans)', msg(estimation failed) rc(199)
-  
+
   tempname k
   _jl: reghdfejl.k = length(coef(m)); st_numscalar("`k'", reghdfejl.k);
   _jl: reghdfejl.sizedf = size(df);
@@ -552,18 +561,19 @@ program define _reghdfejl, eclass
 
   if `k' & 0`bs' {  // bootstrap vce
     local hasclust = "`bscluster'"!=""
+    _jl: using StableRNGs, OrderedCollections;
 
     _jl: batches = [floor(Int, `reps'/`procs'*(t-1))+1:floor(Int,`reps'/`procs'*t) for t ∈ 1:`procs'];  // indexes to split simulations by CPU thread
 
     _jl: reghdfejl.bbs = Matrix{Float64}(undef, `reps', reghdfejl.k);
     _jl: reghdfejl.Vbs = zeros(Float64,`procs', reghdfejl.k, reghdfejl.k);
     _jl: reghdfejl.rngs = [StableRNG(`=runiformint(0, 1e6)' * t + 42) for t ∈ 1:`procs'];  // different, deterministic seeds for each thread
-    _jl: reghdfejl.dfs = [DataFrame(df, copycols=false) for _ ∈ 1:`procs']  // copies of df with same underlying data; will hold different bs weights
+    _jl: reghdfejl.dfs = [DataFrame(df, copycols=false) for _ ∈ 1:`procs'];  // copies of df with same underlying data; will hold different bs weights
 
     if `hasclust' {
       _jl: reghdfejl.s = OrderedSet(df.`bscluster'); reghdfejl.Nclust = length(reghdfejl.s);
       _jl: reghdfejl.id = getindex.(Ref(Dict(zip(reghdfejl.s, 1:reghdfejl.Nclust))), df.`bscluster');  // ordinalize cluster id
-      _jl: reghdfejl.s = nothing
+      _jl: reghdfejl.s = nothing;
     }
     else _jl: reghdfejl.Nclust = size(df,1); reghdfejl.id = Colon();
 
@@ -676,7 +686,7 @@ program define _reghdfejl, eclass
       frame drop `frame'
       if _rc error _rc
     }
-    _jl: reghdfejl.b = nothing
+    _jl: reghdfejl.b = nothing;
     global reghdfejl__coefnames
   }
   else local hascons 0
@@ -811,7 +821,6 @@ program define _reghdfejl, eclass
   ereturn local cmd reghdfejl
 //   ereturn local exposure `exposure'
 //   ereturn local offset `offset'
-
   Display, `diopts' `eformopts' level(`level') `noheader' `notable'
 end
 
@@ -928,3 +937,4 @@ cap program _julia_reghdfejl, plugin using(jl.plugin)  // create an extra handle
 * 1.1.6  Change default tolerance() from 1e-6 to 1e-8. Tidy up display of KP F stat.
 * 1.1.7  BLISBLAS 0.2.0 causing crash, so switch to MKL/OpenBLAS
 * 1.1.8  Switch to downloading and instantiating package environment defined by Project.toml & Manifest.toml
+* 1.1.9  Defer some -using- calls till when/if needed. Add quietly option to GetEnv, SetEnv calls.

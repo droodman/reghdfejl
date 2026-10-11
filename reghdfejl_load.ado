@@ -1,10 +1,10 @@
-*! reghdfejl_load  1.1.8 12 January 2026
+*! reghdfejl_load  1.1.9 11 October 2026
 
 cap program drop reghdfejl_load
 program define reghdfejl_load
   version 15
   
-  local jlversion 2.0.0
+  local jlversion 2.1.0
 
   if `"$reghdfejl_loaded"'=="" {
     cap jl version
@@ -23,16 +23,10 @@ program define reghdfejl_load
     qui findfile reghdfejl_project.toml
     local projectfile `r(fn)'
     qui findfile reghdfejl_manifest.toml
-    qui jl SetEnv @reghdfejl, update project(`projectfile') manifest(`r(fn)') pin  // update the project environment if the definition files in the ado path are newer
- 
-    if c(os)=="MacOSX" {
-      _jl: using AppleAccelerate, Metal;
-    }
-    else {
-      _jl: using CUDA;
-      if "`c(lapack_mkl)'"=="on" _jl: using MKL;
-    }  // else for AMD systems, default to OpenBLAS
-    _jl: using OrderedCollections, StableRNGs, Distributions, Vcov, FixedEffectModels, GLFixedEffectModels;
+    jl SetEnv @reghdfejl, quietly update project(`projectfile') manifest(`r(fn)') pin  // update the project environment if the definition files in the ado path are newer
+
+    _jl: using Distributions, Vcov, FixedEffectModels;
+
     _jl: module reghdfejl global k, sizedf, p, res, esample, D, s, id, reps, b, bbs, V, Vbs, coefnames, rngs, dfs, Nclust, bssize, wts, dst end;  // name space for the package
 
     global reghdfejl_loaded 1
