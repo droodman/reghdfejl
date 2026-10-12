@@ -1,14 +1,14 @@
-*! partialhdfejl 1.1.8 11 January 2026
+*! partialhdfejl 1.1.9 11 October 2026
 
 cap program drop partialhdfejl
 program define partialhdfejl
   version 15
-  qui jl GetEnv
+  jl GetEnv, quietly
   local env `r(env)'
   reghdfejl_load
   cap noi _partialhdfejl `0'
   local rc = _rc
-  qui jl SetEnv `env'
+  jl SetEnv `env', quietly
   forvalues i=1/0$reghdfejl_stringvar_ct {
     cap drop reghdfejl_stringvar_`i'
   }

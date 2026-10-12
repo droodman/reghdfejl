@@ -31,4 +31,5 @@ program define reghdfejl_load
 
     global reghdfejl_loaded 1
   }
+  else jl SetEnv @reghdfejl, quietly
 end
