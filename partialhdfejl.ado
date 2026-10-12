@@ -3,7 +3,7 @@
 cap program drop partialhdfejl
 program define partialhdfejl
   version 15
-  jl GetEnv, quietly
+  cap jl GetEnv, quietly
   local env `r(env)'
   reghdfejl_load
   cap noi _partialhdfejl `0'

@@ -35,7 +35,7 @@ program define reghdfejl
     exit 0
   }
 
-  jl GetEnv, quietly
+  cap jl GetEnv, quietly
   local env `r(env)'
   reghdfejl_load
 

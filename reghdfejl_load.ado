@@ -8,15 +8,14 @@ program define reghdfejl_load
 
   if `"$reghdfejl_loaded"'=="" {
     cap jl version
-    if _rc {
-      di as err `"Can't access Julia. {cmd:reghdfejl} requires that the {cmd:jl} command be installed, via {stata ssc install julia}."
-      di as err "And it requires that Julia be installed, following the instruction under Installation in {help jl##installation:help jl}."
-      exit 198
-    }
+    local rc = _rc
 
-    _jl: Int(v"`r(version)'" < v"`jlversion'")
-    if `r(ans)' {
-      di as txt "The Stata package {cmd:julia} is not up to date. Attempting to update it with {stata ssc install julia, replace}." _n
+    if !_rc {
+      _jl: Int(v"`r(version)'" < v"`jlversion'")
+      local rc `r(ans)'
+    }
+    if 0`rc' {
+      di as txt "The Stata package {cmd:julia} is not up to date. Attempting to install the latest version with {stata ssc install julia, replace}." _n
       ssc install julia, replace
     }
 
